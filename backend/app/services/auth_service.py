@@ -3,12 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from bson import ObjectId
+from bcrypt import checkpw, gensalt, hashpw
 from fastapi import HTTPException
 from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.db import db
 from app.schemas.user import UserCreate
+from app.services.jwt_service import JWTService
 
 
 class AuthService:
@@ -18,9 +19,11 @@ class AuthService:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        from bcrypt import hashpw, gensalt
-
         return hashpw(password.encode("utf-8"), gensalt()).decode("utf-8")
+
+    @staticmethod
+    def verify_password(password: str, password_hash: str) -> bool:
+        return checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
     @staticmethod
     def create_user(payload: UserCreate) -> dict[str, Any]:
@@ -51,4 +54,18 @@ class AuthService:
             "name": created_user["name"],
             "email": created_user["email"],
             "created_at": created_user["created_at"],
+        }
+
+    @staticmethod
+    def login_user(email: str, password: str) -> dict[str, str]:
+        normalized_email = AuthService.normalize_email(email)
+        user = db.get_db()["users"].find_one({"email": normalized_email})
+
+        if user is None or not AuthService.verify_password(password, user.get("password_hash", "")):
+            raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+        access_token = JWTService.create_access_token(str(user["_id"]))
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
         }

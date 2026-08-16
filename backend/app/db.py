@@ -29,6 +29,18 @@ class Database:
             db["users"].create_index("email", unique=True, name="unique_email_idx")
         except PyMongoError:
             pass
+        try:
+            db["conversations"].create_index("participants", name="conversations_participants_idx")
+        except PyMongoError:
+            pass
+        try:
+            db["messages"].create_index("conversation_id", name="messages_conversation_id_idx")
+        except PyMongoError:
+            pass
+        try:
+            db["messages"].create_index([("conversation_id", ASCENDING), ("created_at", ASCENDING)], name="messages_conversation_created_idx")
+        except PyMongoError:
+            pass
 
     @classmethod
     def health_check(cls) -> dict[str, str | bool]:

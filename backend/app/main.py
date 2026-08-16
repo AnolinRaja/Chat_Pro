@@ -3,9 +3,11 @@ from fastapi import FastAPI
 from app.config import settings
 from app.db import db
 from app.routes.auth import router as auth_router
+from app.routes.conversations import router as conversations_router
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION)
 app.include_router(auth_router)
+app.include_router(conversations_router)
 
 
 @app.get("/health")

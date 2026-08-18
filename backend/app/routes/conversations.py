@@ -1,11 +1,50 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_from_token
 from app.schemas.conversation import ConversationCreate, ConversationResponse, MessageCreate, MessageResponse
 from app.services.conversation_service import ConversationService
+from app.services.connection_manager import connection_manager
 from app.services.message_service import MessageService
 
 router = APIRouter(tags=["conversations"])
+
+
+@router.websocket("/ws/conversations/{conversation_id}")
+async def websocket_conversation(websocket: WebSocket, conversation_id: str):
+    token = websocket.query_params.get("token")
+    if not token:
+        auth_header = websocket.headers.get("authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        current_user = await get_current_user_from_token(token)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        ConversationService.get_conversation(conversation_id, current_user["id"])
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    connection_manager.add_connection(conversation_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        connection_manager.remove_connection(conversation_id, websocket)
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)

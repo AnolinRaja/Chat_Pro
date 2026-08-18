@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Any
 
+from fastapi.encoders import jsonable_encoder
 from starlette.websockets import WebSocket, WebSocketState
 
 
@@ -25,6 +27,15 @@ class ConnectionManager:
 
     def get_connections(self, conversation_id: str) -> list[WebSocket]:
         return list(self._connections.get(conversation_id, []))
+
+    async def broadcast(self, conversation_id: str, message: dict[str, Any]) -> None:
+        payload = jsonable_encoder(message)
+        for websocket in self.get_connections(conversation_id):
+            try:
+                if websocket.application_state == WebSocketState.CONNECTED:
+                    await websocket.send_json(payload)
+            except Exception:
+                self.remove_connection(conversation_id, websocket)
 
     def clear_all(self) -> None:
         self._connections.clear()

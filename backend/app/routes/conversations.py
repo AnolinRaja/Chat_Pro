@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from pydantic import ValidationError
 
 from app.dependencies import get_current_user, get_current_user_from_token
 from app.schemas.conversation import ConversationCreate, ConversationResponse, MessageCreate, MessageResponse
@@ -38,7 +41,30 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
 
     try:
         while True:
-            await websocket.receive_text()
+            raw_message = await websocket.receive_text()
+            try:
+                payload = json.loads(raw_message)
+            except json.JSONDecodeError:
+                await websocket.send_json({"detail": "Invalid JSON payload."})
+                continue
+
+            if not isinstance(payload, dict):
+                await websocket.send_json({"detail": "Payload must be a JSON object."})
+                continue
+
+            try:
+                validated_message = MessageCreate(**payload)
+            except (ValidationError, TypeError, ValueError):
+                await websocket.send_json({"detail": "Invalid message payload."})
+                continue
+
+            try:
+                saved_message = MessageService.send_message(conversation_id, current_user["id"], validated_message.content)
+            except HTTPException as exc:
+                await websocket.send_json({"detail": exc.detail})
+                continue
+
+            await connection_manager.broadcast(conversation_id, saved_message)
     except WebSocketDisconnect:
         pass
     except Exception:

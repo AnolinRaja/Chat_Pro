@@ -170,13 +170,19 @@ def test_authenticated_user_can_send_websocket_message():
     with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token1}") as ws_one, \
          client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as ws_two:
         ws_one.send_json({"content": "Hello User B!"})
+        acknowledgement = ws_one.receive_json()
         message_one = ws_one.receive_json()
         message_two = ws_two.receive_json()
 
-        assert message_one["content"] == "Hello User B!"
-        assert message_two["content"] == "Hello User B!"
-        assert message_one["conversation_id"] == conv_id
-        assert message_two["conversation_id"] == conv_id
+        assert acknowledgement["type"] == "message_ack"
+        assert acknowledgement["data"]["content"] == "Hello User B!"
+        assert message_one["type"] == "message"
+        assert message_two["type"] == "message"
+        assert message_one["data"]["content"] == "Hello User B!"
+        assert message_two["data"]["content"] == "Hello User B!"
+        assert message_one["data"]["conversation_id"] == conv_id
+        assert message_two["data"]["conversation_id"] == conv_id
+        assert message_one["data"]["id"] == acknowledgement["data"]["id"]
         assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 1
 
 
@@ -196,14 +202,86 @@ def test_websocket_invalid_message_is_rejected_safely():
          client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as ws_two:
         ws_one.send_json({"content": "   "})
         error_message = ws_one.receive_json()
-        assert "detail" in error_message or "error" in error_message
+        assert error_message["type"] == "error"
+        assert "detail" in error_message["data"]
 
         ws_one.send_text("not-valid-json")
         invalid_json_error = ws_one.receive_json()
-        assert "detail" in invalid_json_error or "error" in invalid_json_error
+        assert invalid_json_error["type"] == "error"
+        assert "detail" in invalid_json_error["data"]
 
         assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 0
         assert len(connection_manager.get_connections(conv_id)) == 2
+
+
+def test_websocket_ack_contains_persisted_message_fields():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conv_id = response.json()["id"]
+
+    with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token1}") as ws_one, \
+         client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as ws_two:
+        ws_one.send_json({"content": "Acknowledged message"})
+        acknowledgement = ws_one.receive_json()
+        broadcast = ws_one.receive_json()
+        ws_two.receive_json()
+
+        saved_message = acknowledgement["data"]
+        assert acknowledgement["type"] == "message_ack"
+        assert set(saved_message) == {"id", "conversation_id", "sender_id", "content", "created_at"}
+        assert saved_message["conversation_id"] == conv_id
+        assert saved_message["content"] == "Acknowledged message"
+        assert broadcast == {"type": "message", "data": saved_message}
+
+
+def test_websocket_missing_content_returns_error_without_persisting():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conv_id = response.json()["id"]
+
+    with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token1}") as ws_one, \
+         client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as ws_two:
+        ws_one.send_json({})
+        error_event = ws_one.receive_json()
+
+        assert error_event["type"] == "error"
+        assert error_event["data"]["detail"] == "Invalid message payload."
+        assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 0
+        assert len(connection_manager.get_connections(conv_id)) == 2
+
+
+def test_non_participant_cannot_send_websocket_message():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    token3 = register_and_login(TEST_USERS[2])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conv_id = response.json()["id"]
+
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token3}"):
+            pass
+
+    assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 0
 
 
 def test_rest_message_endpoints_still_work_after_ws_foundation():

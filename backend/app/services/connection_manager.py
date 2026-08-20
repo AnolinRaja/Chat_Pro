@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
 from typing import Any
 
@@ -30,14 +31,24 @@ class ConnectionManager:
 
     async def broadcast(self, conversation_id: str, message: dict[str, Any]) -> None:
         payload = jsonable_encoder(message)
-        for websocket in self.get_connections(conversation_id):
-            try:
-                if websocket.application_state == WebSocketState.CONNECTED:
-                    await websocket.send_json(payload)
-                else:
-                    self.remove_connection(conversation_id, websocket)
-            except Exception:
+        await asyncio.gather(
+            *(self._send_to_connection(conversation_id, websocket, payload)
+              for websocket in self.get_connections(conversation_id))
+        )
+
+    async def _send_to_connection(
+        self,
+        conversation_id: str,
+        websocket: WebSocket,
+        payload: Any,
+    ) -> None:
+        try:
+            if websocket.application_state == WebSocketState.CONNECTED:
+                await websocket.send_json(payload)
+            else:
                 self.remove_connection(conversation_id, websocket)
+        except Exception:
+            self.remove_connection(conversation_id, websocket)
 
     def clear_all(self) -> None:
         self._connections.clear()

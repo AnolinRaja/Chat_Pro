@@ -463,12 +463,18 @@ def test_rest_message_endpoints_still_work_after_ws_foundation():
 
 
 class _BroadcastTestWebSocket:
-    def __init__(self, *, state=WebSocketState.CONNECTED, error=None):
+    def __init__(self, *, state=WebSocketState.CONNECTED, error=None, started=None, release=None):
         self.application_state = state
         self.error = error
         self.messages = []
+        self.started = started
+        self.release = release
 
     async def send_json(self, message):
+        if self.started is not None:
+            self.started.set()
+        if self.release is not None:
+            await self.release.wait()
         if self.error is not None:
             raise self.error
         self.messages.append(message)
@@ -500,3 +506,51 @@ def test_broadcast_removes_disconnected_client_and_reaches_connected_client():
 
     assert healthy_websocket.messages == [event]
     assert connection_manager.get_connections(conversation_id) == [healthy_websocket]
+
+
+def test_broadcast_sends_to_clients_concurrently():
+    conversation_id = "broadcast-concurrent"
+    slow_started = asyncio.Event()
+    slow_release = asyncio.Event()
+    slow_websocket = _BroadcastTestWebSocket(started=slow_started, release=slow_release)
+    healthy_websocket = _BroadcastTestWebSocket()
+    connection_manager.add_connection(conversation_id, slow_websocket)
+    connection_manager.add_connection(conversation_id, healthy_websocket)
+
+    event = {"type": "message", "data": {"content": "concurrent delivery"}}
+
+    async def broadcast_while_slow_client_waits():
+        broadcast_task = asyncio.create_task(connection_manager.broadcast(conversation_id, event))
+        await asyncio.wait_for(slow_started.wait(), timeout=1)
+        await asyncio.sleep(0)
+        assert healthy_websocket.messages == [event]
+        slow_release.set()
+        await asyncio.wait_for(broadcast_task, timeout=1)
+
+    asyncio.run(broadcast_while_slow_client_waits())
+
+
+def test_slow_and_failed_clients_do_not_block_healthy_broadcast_delivery():
+    conversation_id = "broadcast-slow-failure"
+    slow_started = asyncio.Event()
+    slow_release = asyncio.Event()
+    slow_websocket = _BroadcastTestWebSocket(started=slow_started, release=slow_release)
+    failed_websocket = _BroadcastTestWebSocket(error=RuntimeError("send failed"))
+    healthy_websocket = _BroadcastTestWebSocket()
+    connection_manager.add_connection(conversation_id, slow_websocket)
+    connection_manager.add_connection(conversation_id, failed_websocket)
+    connection_manager.add_connection(conversation_id, healthy_websocket)
+
+    event = {"type": "message", "data": {"content": "isolated delivery"}}
+
+    async def broadcast_with_slow_and_failed_clients():
+        broadcast_task = asyncio.create_task(connection_manager.broadcast(conversation_id, event))
+        await asyncio.wait_for(slow_started.wait(), timeout=1)
+        await asyncio.sleep(0)
+        assert healthy_websocket.messages == [event]
+        slow_release.set()
+        await asyncio.wait_for(broadcast_task, timeout=1)
+
+    asyncio.run(broadcast_with_slow_and_failed_clients())
+
+    assert connection_manager.get_connections(conversation_id) == [slow_websocket, healthy_websocket]

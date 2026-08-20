@@ -1,7 +1,9 @@
+import asyncio
+
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from app.db import db
 from app.main import app
@@ -458,3 +460,43 @@ def test_rest_message_endpoints_still_work_after_ws_foundation():
     )
     assert history.status_code == 200
     assert history.json()[0]["content"] == "REST message"
+
+
+class _BroadcastTestWebSocket:
+    def __init__(self, *, state=WebSocketState.CONNECTED, error=None):
+        self.application_state = state
+        self.error = error
+        self.messages = []
+
+    async def send_json(self, message):
+        if self.error is not None:
+            raise self.error
+        self.messages.append(message)
+
+
+def test_broadcast_failure_isolated_and_failed_client_removed():
+    conversation_id = "broadcast-failure"
+    healthy_websocket = _BroadcastTestWebSocket()
+    failed_websocket = _BroadcastTestWebSocket(error=RuntimeError("send failed"))
+    connection_manager.add_connection(conversation_id, healthy_websocket)
+    connection_manager.add_connection(conversation_id, failed_websocket)
+
+    event = {"type": "message", "data": {"content": "still delivered"}}
+    asyncio.run(connection_manager.broadcast(conversation_id, event))
+
+    assert healthy_websocket.messages == [event]
+    assert connection_manager.get_connections(conversation_id) == [healthy_websocket]
+
+
+def test_broadcast_removes_disconnected_client_and_reaches_connected_client():
+    conversation_id = "broadcast-disconnect"
+    healthy_websocket = _BroadcastTestWebSocket()
+    disconnected_websocket = _BroadcastTestWebSocket(state=WebSocketState.DISCONNECTED)
+    connection_manager.add_connection(conversation_id, healthy_websocket)
+    connection_manager.add_connection(conversation_id, disconnected_websocket)
+
+    event = {"type": "message", "data": {"content": "healthy only"}}
+    asyncio.run(connection_manager.broadcast(conversation_id, event))
+
+    assert healthy_websocket.messages == [event]
+    assert connection_manager.get_connections(conversation_id) == [healthy_websocket]

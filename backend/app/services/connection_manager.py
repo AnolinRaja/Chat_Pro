@@ -34,6 +34,8 @@ class ConnectionManager:
             try:
                 if websocket.application_state == WebSocketState.CONNECTED:
                     await websocket.send_json(payload)
+                else:
+                    self.remove_connection(conversation_id, websocket)
             except Exception:
                 self.remove_connection(conversation_id, websocket)
 

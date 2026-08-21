@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 from bson import ObjectId
@@ -8,6 +9,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 from app.db import db
 from app.main import app
 from app.services.connection_manager import connection_manager
+from app.services.message_service import MessageService
 
 client = TestClient(app)
 
@@ -498,8 +500,8 @@ def test_broadcast_removes_disconnected_client_and_reaches_connected_client():
     conversation_id = "broadcast-disconnect"
     healthy_websocket = _BroadcastTestWebSocket()
     disconnected_websocket = _BroadcastTestWebSocket(state=WebSocketState.DISCONNECTED)
-    connection_manager.add_connection(conversation_id, healthy_websocket)
-    connection_manager.add_connection(conversation_id, disconnected_websocket)
+    connection_manager.add_connection(conversation_id, healthy_websocket, None)
+    connection_manager.add_connection(conversation_id, disconnected_websocket, None)
 
     event = {"type": "message", "data": {"content": "healthy only"}}
     asyncio.run(connection_manager.broadcast(conversation_id, event))
@@ -514,8 +516,8 @@ def test_broadcast_sends_to_clients_concurrently():
     slow_release = asyncio.Event()
     slow_websocket = _BroadcastTestWebSocket(started=slow_started, release=slow_release)
     healthy_websocket = _BroadcastTestWebSocket()
-    connection_manager.add_connection(conversation_id, slow_websocket)
-    connection_manager.add_connection(conversation_id, healthy_websocket)
+    connection_manager.add_connection(conversation_id, slow_websocket, None)
+    connection_manager.add_connection(conversation_id, healthy_websocket, None)
 
     event = {"type": "message", "data": {"content": "concurrent delivery"}}
 
@@ -537,9 +539,9 @@ def test_slow_and_failed_clients_do_not_block_healthy_broadcast_delivery():
     slow_websocket = _BroadcastTestWebSocket(started=slow_started, release=slow_release)
     failed_websocket = _BroadcastTestWebSocket(error=RuntimeError("send failed"))
     healthy_websocket = _BroadcastTestWebSocket()
-    connection_manager.add_connection(conversation_id, slow_websocket)
-    connection_manager.add_connection(conversation_id, failed_websocket)
-    connection_manager.add_connection(conversation_id, healthy_websocket)
+    connection_manager.add_connection(conversation_id, slow_websocket, None)
+    connection_manager.add_connection(conversation_id, failed_websocket, None)
+    connection_manager.add_connection(conversation_id, healthy_websocket, None)
 
     event = {"type": "message", "data": {"content": "isolated delivery"}}
 
@@ -554,3 +556,139 @@ def test_slow_and_failed_clients_do_not_block_healthy_broadcast_delivery():
     asyncio.run(broadcast_with_slow_and_failed_clients())
 
     assert connection_manager.get_connections(conversation_id) == [slow_websocket, healthy_websocket]
+
+
+def test_unexpected_persistence_exception_returns_safe_error_and_is_logged(monkeypatch, caplog):
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = response.json()["id"]
+    failure_detail = "database internals must not be exposed"
+    message_content = "secret message content"
+
+    def fail_persistence(*args, **kwargs):
+        raise RuntimeError(failure_detail)
+
+    monkeypatch.setattr(MessageService, "send_message", fail_persistence)
+
+    with caplog.at_level("ERROR"):
+        with client.websocket_connect(f"/ws/conversations/{conversation_id}?token={token1}") as websocket:
+            websocket.send_json({"content": message_content})
+            error_event = websocket.receive_json()
+
+    assert error_event == {
+        "type": "error",
+        "data": {"detail": "Unable to send message."},
+    }
+    assert failure_detail in caplog.text
+    assert token1 not in caplog.text
+    assert message_content not in caplog.text
+    assert conversation_id in caplog.text
+
+
+def test_persistence_failure_does_not_ack_broadcast_or_create_message(monkeypatch):
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = response.json()["id"]
+    broadcast_mock = AsyncMock()
+
+    monkeypatch.setattr(MessageService, "send_message", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("failed")))
+    monkeypatch.setattr(connection_manager, "broadcast", broadcast_mock)
+
+    with client.websocket_connect(f"/ws/conversations/{conversation_id}?token={token1}") as websocket:
+        websocket.send_json({"content": "not persisted"})
+        error_event = websocket.receive_json()
+
+    assert error_event["type"] == "error"
+    assert error_event["data"]["detail"] == "Unable to send message."
+    broadcast_mock.assert_not_awaited()
+    assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conversation_id)}) == 0
+
+
+def test_connection_remains_usable_after_recoverable_persistence_failure(monkeypatch):
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = response.json()["id"]
+    original_send_message = MessageService.send_message
+    attempts = 0
+
+    def fail_once_then_persist(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("temporary persistence failure")
+        return original_send_message(*args, **kwargs)
+
+    monkeypatch.setattr(MessageService, "send_message", fail_once_then_persist)
+
+    with client.websocket_connect(f"/ws/conversations/{conversation_id}?token={token1}") as ws_one, \
+         client.websocket_connect(f"/ws/conversations/{conversation_id}?token={token2}") as ws_two:
+        ws_one.send_json({"content": "first attempt"})
+        error_event = ws_one.receive_json()
+        assert error_event["type"] == "error"
+
+        ws_one.send_json({"content": "successful retry"})
+        acknowledgement = ws_one.receive_json()
+        sender_event = ws_one.receive_json()
+        recipient_event = ws_two.receive_json()
+
+        assert acknowledgement["type"] == "message_ack"
+        assert sender_event["type"] == "message"
+        assert recipient_event["type"] == "message"
+        assert sender_event["data"]["content"] == "successful retry"
+        assert recipient_event["data"]["content"] == "successful retry"
+
+    assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conversation_id)}) == 1
+
+
+def test_unexpected_outer_websocket_exception_is_logged_and_connection_cleaned(monkeypatch, caplog):
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = response.json()["id"]
+    unexpected_detail = "unexpected websocket internals"
+
+    async def fail_receive_text(self):
+        raise RuntimeError(unexpected_detail)
+
+    monkeypatch.setattr("starlette.websockets.WebSocket.receive_text", fail_receive_text)
+
+    with caplog.at_level("ERROR"):
+        with client.websocket_connect(f"/ws/conversations/{conversation_id}?token={token1}"):
+            pass
+
+    assert unexpected_detail in caplog.text
+    assert conversation_id in caplog.text
+    assert len(connection_manager.get_connections(conversation_id)) == 0
+
+
+def test_invalid_authentication_is_not_written_to_logs(caplog):
+    sensitive_token = "sensitive-access-token-value"
+    with caplog.at_level("ERROR"):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(f"/ws/conversations/{ObjectId()}?token={sensitive_token}"):
+                pass
+
+    assert sensitive_token not in caplog.text

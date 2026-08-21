@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
@@ -11,10 +12,12 @@ from app.services.connection_manager import connection_manager
 from app.services.message_service import MessageService
 
 router = APIRouter(tags=["conversations"])
+logger = logging.getLogger(__name__)
 
 
 @router.websocket("/ws/conversations/{conversation_id}")
 async def websocket_conversation(websocket: WebSocket, conversation_id: str):
+    current_user = None
     token = websocket.query_params.get("token")
     if not token:
         auth_header = websocket.headers.get("authorization")
@@ -38,11 +41,17 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         return
 
     await websocket.accept()
-    connection_manager.add_connection(conversation_id, websocket)
+    connection_manager.add_connection(conversation_id, websocket, current_user["id"])
+    logger.info(
+        "WebSocket connection established for conversation_id=%s user_id=%s",
+        conversation_id,
+        current_user["id"],
+    )
 
     try:
         while True:
             raw_message = await websocket.receive_text()
+            connection_manager.update_activity(websocket)
             try:
                 payload = json.loads(raw_message)
             except json.JSONDecodeError:
@@ -76,6 +85,17 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
                     "data": {"detail": exc.detail},
                 })
                 continue
+            except Exception:
+                logger.exception(
+                    "Unexpected message persistence error for conversation_id=%s user_id=%s",
+                    conversation_id,
+                    current_user["id"],
+                )
+                await websocket.send_json({
+                    "type": "error",
+                    "data": {"detail": "Unable to send message."},
+                })
+                continue
 
             encoded_message = jsonable_encoder(saved_message)
             await websocket.send_json({"type": "message_ack", "data": encoded_message})
@@ -84,11 +104,24 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
                 {"type": "message", "data": encoded_message},
             )
     except WebSocketDisconnect:
-        pass
+        logger.info(
+            "WebSocket disconnected for conversation_id=%s user_id=%s",
+            conversation_id,
+            current_user["id"] if current_user else None,
+        )
     except Exception:
-        pass
+        logger.exception(
+            "Unexpected WebSocket error for conversation_id=%s user_id=%s",
+            conversation_id,
+            current_user["id"] if current_user else None,
+        )
     finally:
         connection_manager.remove_connection(conversation_id, websocket)
+        logger.info(
+            "WebSocket connection removed for conversation_id=%s user_id=%s",
+            conversation_id,
+            current_user["id"] if current_user else None,
+        )
 
 
 @router.post("/conversations", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)

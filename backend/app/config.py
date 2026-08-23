@@ -7,6 +7,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _get_websocket_idle_threshold_seconds() -> int:
+    value = int(os.getenv("WEBSOCKET_IDLE_THRESHOLD_SECONDS", "300"))
+    if not 1 <= value <= 86400:
+        raise ValueError(
+            "WEBSOCKET_IDLE_THRESHOLD_SECONDS must be between "
+            f"1 and 86400 seconds inclusive; got {value}"
+        )
+    return value
+
+
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "chatpro-backend")
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
@@ -18,7 +28,7 @@ class Settings:
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-this-in-production")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-    WEBSOCKET_IDLE_THRESHOLD_SECONDS: int = int(os.getenv("WEBSOCKET_IDLE_THRESHOLD_SECONDS", "300"))
+    WEBSOCKET_IDLE_THRESHOLD_SECONDS: int = _get_websocket_idle_threshold_seconds()
 
 
 settings = Settings()

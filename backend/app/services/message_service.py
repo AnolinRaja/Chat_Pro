@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import logging
 from typing import Any
 
 from bson import ObjectId
@@ -9,8 +10,12 @@ from pymongo.errors import PyMongoError
 
 from app.db import db
 
+logger = logging.getLogger(__name__)
+
 
 class MessageService:
+    ACTIVITY_UPDATE_ATTEMPTS = 3
+
     @staticmethod
     def send_message(conversation_id: str, user_id: str, content: str) -> dict[str, Any]:
         try:
@@ -49,10 +54,17 @@ class MessageService:
         except PyMongoError:
             raise HTTPException(status_code=500, detail="Unable to send message.")
 
-        try:
-            conversations_collection.update_one({"_id": conv_oid}, {"$set": {"updated_at": now}})
-        except PyMongoError:
-            pass
+        for attempt in range(MessageService.ACTIVITY_UPDATE_ATTEMPTS):
+            try:
+                conversations_collection.update_one({"_id": conv_oid}, {"$set": {"updated_at": now}})
+                break
+            except PyMongoError:
+                if attempt == MessageService.ACTIVITY_UPDATE_ATTEMPTS - 1:
+                    logger.exception(
+                        "Unable to update conversation activity after %s attempts for conversation_id=%s",
+                        MessageService.ACTIVITY_UPDATE_ATTEMPTS,
+                        conversation_id,
+                    )
 
         created = messages_collection.find_one({"_id": result.inserted_id})
         if created is None:

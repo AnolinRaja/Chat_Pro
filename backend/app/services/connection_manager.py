@@ -17,6 +17,12 @@ class ConnectionManager:
         self._metadata: dict[WebSocket, dict[str, Any]] = {}
 
     def add_connection(self, conversation_id: str, websocket: WebSocket, user_id: str | None = None) -> None:
+        existing_metadata = self._metadata.get(websocket)
+        if existing_metadata is not None and existing_metadata["conversation_id"] != conversation_id:
+            raise ValueError(
+                "WebSocket is already registered to a different conversation."
+            )
+
         conversation_connections = self._connections.setdefault(conversation_id, [])
         if websocket not in conversation_connections:
             conversation_connections.append(websocket)
@@ -82,12 +88,48 @@ class ConnectionManager:
         payload: Any,
     ) -> None:
         try:
-            if websocket.application_state == WebSocketState.CONNECTED:
-                await websocket.send_json(payload)
-            else:
-                self.remove_connection(conversation_id, websocket)
+            conversation_connections = self._connections.get(conversation_id, [])
+            if not any(ws is websocket for ws in conversation_connections):
+                return
+
+            metadata = self._metadata.get(websocket)
+            if metadata is None or metadata.get("conversation_id") != conversation_id:
+                self._remove_connection_safely(conversation_id, websocket)
+                return
+
+            if websocket.application_state != WebSocketState.CONNECTED:
+                self._remove_connection_safely(conversation_id, websocket)
+                return
+
+            await websocket.send_json(payload)
         except Exception:
+            self._remove_connection_safely(conversation_id, websocket)
+
+    def _remove_connection_safely(self, conversation_id: str, websocket: WebSocket) -> None:
+        metadata = self._metadata.get(websocket)
+        if metadata is not None and metadata.get("conversation_id") != conversation_id:
+            self._remove_from_conversation(conversation_id, websocket)
+            return
+
+        try:
             self.remove_connection(conversation_id, websocket)
+        except Exception:
+            self._remove_from_conversation(conversation_id, websocket)
+            if self._metadata.get(websocket) is metadata:
+                self._metadata.pop(websocket, None)
+
+    def _remove_from_conversation(self, conversation_id: str, websocket: WebSocket) -> None:
+        conversation_connections = self._connections.get(conversation_id)
+        if conversation_connections is None:
+            return
+
+        remaining_connections = [
+            ws for ws in conversation_connections if ws is not websocket
+        ]
+        if remaining_connections:
+            self._connections[conversation_id] = remaining_connections
+        else:
+            self._connections.pop(conversation_id, None)
 
     def clear_all(self) -> None:
         self._connections.clear()

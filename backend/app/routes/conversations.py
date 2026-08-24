@@ -1,7 +1,7 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
@@ -156,9 +156,23 @@ def send_message(conversation_id: str, payload: MessageCreate, current_user: dic
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageResponse])
-def get_messages(conversation_id: str, current_user: dict = Depends(get_current_user)):
+def get_messages(
+    conversation_id: str,
+    response: Response,
+    limit: int = Query(50, ge=1, le=100),
+    cursor: str | None = None,
+    current_user: dict = Depends(get_current_user),
+):
     try:
-        return MessageService.get_messages(conversation_id, current_user["id"])
+        messages, next_cursor = MessageService.get_messages_page(
+            conversation_id,
+            current_user["id"],
+            limit,
+            cursor,
+        )
+        if next_cursor is not None:
+            response.headers["X-Next-Cursor"] = next_cursor
+        return messages
     except HTTPException:
         raise
     except Exception:

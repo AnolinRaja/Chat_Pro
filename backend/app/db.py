@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from pymongo import ASCENDING, MongoClient
@@ -7,9 +8,43 @@ from pymongo.errors import PyMongoError
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 class Database:
     client: MongoClient | None = None
+    EXPECTED_INDEXES = (
+        {
+            "collection": "users",
+            "name": "unique_email_idx",
+            "keys": [("email", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "conversations",
+            "name": "conversations_participants_idx",
+            "keys": [("participants", ASCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "conversations",
+            "name": "unique_conversation_participant_key_idx",
+            "keys": [("participant_key", ASCENDING)],
+            "options": {"unique": True, "sparse": True},
+        },
+        {
+            "collection": "messages",
+            "name": "messages_conversation_id_idx",
+            "keys": [("conversation_id", ASCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "messages",
+            "name": "messages_conversation_created_idx",
+            "keys": [("conversation_id", ASCENDING), ("created_at", ASCENDING)],
+            "options": {},
+        },
+    )
 
     @classmethod
     def get_client(cls) -> MongoClient:
@@ -23,33 +58,51 @@ class Database:
         return client[settings.MONGODB_DB]
 
     @classmethod
-    def ensure_indexes(cls) -> None:
-        db = cls.get_db()
-        try:
-            db["users"].create_index("email", unique=True, name="unique_email_idx")
-        except PyMongoError:
-            pass
-        try:
-            db["conversations"].create_index("participants", name="conversations_participants_idx")
-        except PyMongoError:
-            pass
-        try:
-            db["conversations"].create_index(
-                "participant_key",
-                unique=True,
-                sparse=True,
-                name="unique_conversation_participant_key_idx",
-            )
-        except PyMongoError:
-            pass
-        try:
-            db["messages"].create_index("conversation_id", name="messages_conversation_id_idx")
-        except PyMongoError:
-            pass
-        try:
-            db["messages"].create_index([("conversation_id", ASCENDING), ("created_at", ASCENDING)], name="messages_conversation_created_idx")
-        except PyMongoError:
-            pass
+    def ensure_indexes(cls) -> dict[str, dict[str, list[str]]]:
+        database = cls.get_db()
+        for index in cls.EXPECTED_INDEXES:
+            try:
+                database[index["collection"]].create_index(
+                    index["keys"],
+                    name=index["name"],
+                    **index["options"],
+                )
+            except PyMongoError:
+                logger.error(
+                    "Failed to create MongoDB index collection=%s index=%s",
+                    index["collection"],
+                    index["name"],
+                )
+
+        return cls.verify_indexes(database)
+
+    @classmethod
+    def verify_indexes(cls, database: Any | None = None) -> dict[str, dict[str, list[str]]]:
+        if database is None:
+            database = cls.get_db()
+        verification: dict[str, dict[str, list[str]]] = {}
+        expected_by_collection: dict[str, list[str]] = {}
+        for index in cls.EXPECTED_INDEXES:
+            expected_by_collection.setdefault(index["collection"], []).append(index["name"])
+
+        for collection_name, expected_names in expected_by_collection.items():
+            present_names: set[str] = set()
+            try:
+                present_names = {
+                    index["name"] for index in database[collection_name].list_indexes()
+                }
+            except PyMongoError:
+                logger.error(
+                    "Failed to verify MongoDB indexes collection=%s",
+                    collection_name,
+                )
+
+            verification[collection_name] = {
+                "present": [name for name in expected_names if name in present_names],
+                "missing": [name for name in expected_names if name not in present_names],
+            }
+
+        return verification
 
     @classmethod
     def health_check(cls) -> dict[str, str | bool]:

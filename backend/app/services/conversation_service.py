@@ -5,12 +5,16 @@ from typing import Any
 
 from bson import ObjectId
 from fastapi import HTTPException
-from pymongo.errors import PyMongoError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from app.db import db
 
 
 class ConversationService:
+    @staticmethod
+    def canonical_participant_key(user_id: str, other_user_id: str) -> str:
+        return ":".join(sorted((user_id, other_user_id)))
+
     @staticmethod
     def create_conversation(user_id: str, other_user_id: str) -> dict[str, Any]:
         if user_id == other_user_id:
@@ -30,20 +34,32 @@ class ConversationService:
         conversations_collection = db.get_db()["conversations"]
 
         sorted_participants = sorted([user_oid, other_oid], key=lambda x: str(x))
+        participant_key = ConversationService.canonical_participant_key(
+            str(user_oid),
+            str(other_oid),
+        )
 
-        existing = conversations_collection.find_one({"participants": {"$all": sorted_participants}})
+        existing = conversations_collection.find_one({"participant_key": participant_key})
+        if existing is None:
+            existing = conversations_collection.find_one({"participants": {"$all": sorted_participants}})
         if existing:
             return ConversationService._format_conversation(existing)
 
         now = datetime.now(timezone.utc)
         doc = {
             "participants": sorted_participants,
+            "participant_key": participant_key,
             "created_at": now,
             "updated_at": now,
         }
 
         try:
             result = conversations_collection.insert_one(doc)
+        except DuplicateKeyError:
+            existing = conversations_collection.find_one({"participant_key": participant_key})
+            if existing is not None:
+                return ConversationService._format_conversation(existing)
+            raise HTTPException(status_code=500, detail="Unable to create conversation.")
         except PyMongoError:
             raise HTTPException(status_code=500, detail="Unable to create conversation.")
 

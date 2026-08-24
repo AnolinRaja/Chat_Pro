@@ -34,6 +34,15 @@ class Database:
         except PyMongoError:
             pass
         try:
+            db["conversations"].create_index(
+                "participant_key",
+                unique=True,
+                sparse=True,
+                name="unique_conversation_participant_key_idx",
+            )
+        except PyMongoError:
+            pass
+        try:
             db["messages"].create_index("conversation_id", name="messages_conversation_id_idx")
         except PyMongoError:
             pass

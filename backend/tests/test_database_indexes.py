@@ -6,14 +6,15 @@ from app.db import Database, db
 
 
 class FakeCollection:
-    def __init__(self, indexes=None, failing=False):
+    def __init__(self, indexes=None, failing=False, failing_names=None):
         self.indexes = list(indexes or [])
         self.failing = failing
+        self.failing_names = set(failing_names or [])
         self.create_calls = []
 
     def create_index(self, keys, *, name, **options):
         self.create_calls.append((keys, name, options))
-        if self.failing:
+        if self.failing or name in self.failing_names:
             raise PyMongoError("index creation failed")
         if not any(index["name"] == name for index in self.indexes):
             self.indexes.append({"name": name, "key": dict(keys), **options})
@@ -23,13 +24,14 @@ class FakeCollection:
         return list(self.indexes)
 
 
-def make_fake_database(failing_collection=None):
+def make_fake_database(failing_collection=None, failing_index=None):
     collections = {}
     for specification in Database.EXPECTED_INDEXES:
         collection_name = specification["collection"]
         if collection_name not in collections:
             collections[collection_name] = FakeCollection(
-                failing=collection_name == failing_collection
+                failing=collection_name == failing_collection,
+                failing_names={failing_index} if failing_index else None,
             )
     return collections
 
@@ -43,6 +45,7 @@ def test_expected_index_specifications_are_centralized():
         "unique_conversation_participant_key_idx",
         "messages_conversation_id_idx",
         "messages_conversation_created_idx",
+        "messages_conversation_created_id_idx",
     }
 
 
@@ -85,6 +88,41 @@ def test_message_indexes_have_expected_keys():
     assert indexes["messages_conversation_created_idx"]["key"] == {
         "conversation_id": 1,
         "created_at": 1,
+    }
+    assert indexes["messages_conversation_created_id_idx"]["key"] == {
+        "conversation_id": 1,
+        "created_at": 1,
+        "_id": 1,
+    }
+
+
+def test_pagination_index_is_centralized_with_exact_key_order():
+    index = next(
+        specification
+        for specification in Database.EXPECTED_INDEXES
+        if specification["name"] == "messages_conversation_created_id_idx"
+    )
+
+    assert index["collection"] == "messages"
+    assert index["keys"] == [
+        ("conversation_id", 1),
+        ("created_at", 1),
+        ("_id", 1),
+    ]
+    assert index["options"] == {}
+
+
+def test_pagination_index_exists_in_configured_database():
+    index = next(
+        item
+        for item in db.get_db()["messages"].list_indexes()
+        if item["name"] == "messages_conversation_created_id_idx"
+    )
+
+    assert index["key"] == {
+        "conversation_id": 1,
+        "created_at": 1,
+        "_id": 1,
     }
 
 
@@ -130,6 +168,19 @@ def test_index_creation_failure_is_logged(monkeypatch, caplog):
     assert result["messages"]["missing"]
 
 
+def test_pagination_index_creation_failure_is_logged_safely(monkeypatch, caplog):
+    index_name = "messages_conversation_created_id_idx"
+    fake_database = make_fake_database(failing_index=index_name)
+    monkeypatch.setattr(Database, "get_db", classmethod(lambda cls: fake_database))
+
+    with caplog.at_level("ERROR"):
+        result = Database.ensure_indexes()
+
+    assert f"collection=messages index={index_name}" in caplog.text
+    assert index_name in result["messages"]["missing"]
+    assert len(fake_database["messages"].create_calls) == 3
+
+
 def test_one_failed_index_does_not_stop_other_index_attempts(monkeypatch):
     fake_database = make_fake_database(failing_collection="conversations")
     monkeypatch.setattr(Database, "get_db", classmethod(lambda cls: fake_database))
@@ -137,7 +188,7 @@ def test_one_failed_index_does_not_stop_other_index_attempts(monkeypatch):
     Database.ensure_indexes()
 
     assert len(fake_database["users"].create_calls) == 1
-    assert len(fake_database["messages"].create_calls) == 2
+    assert len(fake_database["messages"].create_calls) == 3
     assert len(fake_database["conversations"].create_calls) == 2
 
 
@@ -158,7 +209,10 @@ def test_verify_indexes_reports_missing_expected_indexes():
     }
     assert result["messages"] == {
         "present": ["messages_conversation_id_idx"],
-        "missing": ["messages_conversation_created_idx"],
+        "missing": [
+            "messages_conversation_created_idx",
+            "messages_conversation_created_id_idx",
+        ],
     }
 
 

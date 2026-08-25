@@ -44,6 +44,16 @@ class Database:
             "keys": [("conversation_id", ASCENDING), ("created_at", ASCENDING)],
             "options": {},
         },
+        {
+            "collection": "messages",
+            "name": "messages_conversation_created_id_idx",
+            "keys": [
+                ("conversation_id", ASCENDING),
+                ("created_at", ASCENDING),
+                ("_id", ASCENDING),
+            ],
+            "options": {},
+        },
     )
 
     @classmethod

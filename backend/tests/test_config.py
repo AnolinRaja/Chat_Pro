@@ -1,6 +1,6 @@
 import pytest
 
-from app.config import _get_websocket_idle_threshold_seconds, settings
+from app.config import _get_jwt_secret_key, _get_websocket_idle_threshold_seconds, settings
 
 
 @pytest.mark.parametrize("value", [1, 86400])
@@ -30,3 +30,68 @@ def test_websocket_idle_threshold_rejects_values_above_86400(monkeypatch):
 
     with pytest.raises(ValueError, match="between 1 and 86400 seconds inclusive"):
         _get_websocket_idle_threshold_seconds()
+
+
+def test_jwt_secret_accepts_32_character_value(monkeypatch):
+    secret = "a" * 32
+    monkeypatch.setenv("JWT_SECRET_KEY", secret)
+
+    assert _get_jwt_secret_key() == secret
+
+
+def test_jwt_secret_accepts_longer_value_and_preserves_it(monkeypatch):
+    secret = "a-strong-development-secret-2026-value"
+    monkeypatch.setenv("JWT_SECRET_KEY", secret)
+
+    assert _get_jwt_secret_key() == secret
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_jwt_secret_rejects_missing_or_empty_value(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    else:
+        monkeypatch.setenv("JWT_SECRET_KEY", value)
+
+    with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
+        _get_jwt_secret_key()
+
+
+def test_jwt_secret_rejects_whitespace_only_value(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET_KEY", " " * 32)
+
+    with pytest.raises(ValueError, match="JWT_SECRET_KEY"):
+        _get_jwt_secret_key()
+
+
+def test_jwt_secret_rejects_known_insecure_fallback(monkeypatch):
+    monkeypatch.setenv("JWT_SECRET_KEY", "change-this-in-production")
+
+    with pytest.raises(ValueError, match="insecure default"):
+        _get_jwt_secret_key()
+
+
+@pytest.mark.parametrize("value", ["short-secret", "b" * 31])
+def test_jwt_secret_rejects_values_shorter_than_32_characters(monkeypatch, value):
+    monkeypatch.setenv("JWT_SECRET_KEY", value)
+
+    with pytest.raises(ValueError, match="at least 32 characters"):
+        _get_jwt_secret_key()
+
+
+def test_jwt_secret_error_does_not_expose_secret(monkeypatch):
+    secret = "secret-value"
+    monkeypatch.setenv("JWT_SECRET_KEY", secret)
+
+    with pytest.raises(ValueError) as error:
+        _get_jwt_secret_key()
+
+    assert secret not in str(error.value)
+
+
+def test_explicit_secret_keeps_development_and_test_configuration_usable(monkeypatch):
+    secret = "explicit-test-secret-with-32-or-more-chars"
+    monkeypatch.setenv("JWT_SECRET_KEY", secret)
+
+    assert _get_jwt_secret_key() == secret
+    assert settings.JWT_SECRET_KEY

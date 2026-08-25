@@ -17,6 +17,21 @@ def _get_websocket_idle_threshold_seconds() -> int:
     return value
 
 
+def _get_jwt_secret_key() -> str:
+    value = os.getenv("JWT_SECRET_KEY")
+    if value is None or not value.strip():
+        raise ValueError(
+            "JWT_SECRET_KEY must be explicitly configured with a strong secret."
+        )
+    if value == "change-this-in-production":
+        raise ValueError(
+            "JWT_SECRET_KEY must not use the insecure default value."
+        )
+    if len(value) < 32:
+        raise ValueError("JWT_SECRET_KEY must be at least 32 characters long.")
+    return value
+
+
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "chatpro-backend")
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
@@ -25,7 +40,7 @@ class Settings:
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
     MONGODB_DB: str = os.getenv("MONGODB_DB", "chatpro")
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-this-in-production")
+    JWT_SECRET_KEY: str = _get_jwt_secret_key()
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     WEBSOCKET_IDLE_THRESHOLD_SECONDS: int = _get_websocket_idle_threshold_seconds()

@@ -89,6 +89,41 @@ def test_jwt_secret_error_does_not_expose_secret(monkeypatch):
     assert secret not in str(error.value)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "WEBSOCKET_MAX_CONNECTIONS_PER_USER",
+        "WEBSOCKET_MAX_MESSAGE_SIZE_BYTES",
+        "WEBSOCKET_MESSAGE_RATE_LIMIT",
+        "WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS",
+    ],
+)
+def test_websocket_security_limits_accept_positive_values(monkeypatch, name):
+    monkeypatch.setenv(name, "1")
+
+    from app.config import _get_positive_int
+
+    assert _get_positive_int(name, "5") == 1
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("WEBSOCKET_MAX_CONNECTIONS_PER_USER", "0"),
+        ("WEBSOCKET_MAX_MESSAGE_SIZE_BYTES", "-1"),
+        ("WEBSOCKET_MESSAGE_RATE_LIMIT", "invalid"),
+        ("WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS", "0"),
+    ],
+)
+def test_websocket_security_limits_reject_invalid_values(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+
+    from app.config import _get_positive_int
+
+    with pytest.raises(ValueError, match=name):
+        _get_positive_int(name, "5")
+
+
 def test_explicit_secret_keeps_development_and_test_configuration_usable(monkeypatch):
     secret = "explicit-test-secret-with-32-or-more-chars"
     monkeypatch.setenv("JWT_SECRET_KEY", secret)

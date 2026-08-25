@@ -5,11 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocke
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from app.config import settings
 from app.dependencies import get_current_user, get_current_user_from_token
 from app.schemas.conversation import ConversationCreate, ConversationResponse, MessageCreate, MessageResponse
 from app.services.conversation_service import ConversationService
 from app.services.connection_manager import connection_manager
 from app.services.message_service import MessageService
+from app.services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(tags=["conversations"])
 logger = logging.getLogger(__name__)
@@ -40,6 +42,10 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         await websocket.close(code=1008)
         return
 
+    if connection_manager.get_user_connection_count(current_user["id"]) >= settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER:
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     connection_manager.add_connection(conversation_id, websocket, current_user["id"])
     logger.info(
@@ -52,6 +58,25 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         while True:
             raw_message = await websocket.receive_text()
             connection_manager.update_activity(websocket)
+            if len(raw_message.encode("utf-8")) > settings.WEBSOCKET_MAX_MESSAGE_SIZE_BYTES:
+                await websocket.send_json({
+                    "type": "error",
+                    "data": {"detail": "WebSocket message is too large."},
+                })
+                continue
+
+            retry_after = auth_rate_limiter.check(
+                f"websocket-message:{current_user['id']}",
+                settings.WEBSOCKET_MESSAGE_RATE_LIMIT,
+                settings.WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS,
+            )
+            if retry_after is not None:
+                await websocket.send_json({
+                    "type": "error",
+                    "data": {"detail": "Too many WebSocket messages. Try again later."},
+                })
+                continue
+
             try:
                 payload = json.loads(raw_message)
             except json.JSONDecodeError:

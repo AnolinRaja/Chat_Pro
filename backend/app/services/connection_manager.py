@@ -52,6 +52,12 @@ class ConnectionManager:
     def get_connections(self, conversation_id: str) -> list[WebSocket]:
         return list(self._connections.get(conversation_id, []))
 
+    def get_user_connection_count(self, user_id: str) -> int:
+        return sum(
+            metadata.get("user_id") == user_id
+            for metadata in self._metadata.values()
+        )
+
     def get_conversation_stats(self, conversation_id: str) -> dict[str, int]:
         connections = self.get_connections(conversation_id)
         now = datetime.now(timezone.utc)

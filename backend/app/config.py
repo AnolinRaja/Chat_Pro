@@ -32,6 +32,16 @@ def _get_jwt_secret_key() -> str:
     return value
 
 
+def _get_positive_int(name: str, default: str) -> int:
+    try:
+        value = int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a positive integer.")
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer.")
+    return value
+
+
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "chatpro-backend")
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
@@ -44,8 +54,20 @@ class Settings:
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     WEBSOCKET_IDLE_THRESHOLD_SECONDS: int = _get_websocket_idle_threshold_seconds()
-    AUTH_RATE_LIMIT_REQUESTS: int = int(os.getenv("AUTH_RATE_LIMIT_REQUESTS", "10"))
-    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = int(os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "60"))
+    AUTH_RATE_LIMIT_REQUESTS: int = _get_positive_int("AUTH_RATE_LIMIT_REQUESTS", "10")
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = _get_positive_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", "60")
+    WEBSOCKET_MAX_CONNECTIONS_PER_USER: int = _get_positive_int(
+        "WEBSOCKET_MAX_CONNECTIONS_PER_USER", "5"
+    )
+    WEBSOCKET_MAX_MESSAGE_SIZE_BYTES: int = _get_positive_int(
+        "WEBSOCKET_MAX_MESSAGE_SIZE_BYTES", "65536"
+    )
+    WEBSOCKET_MESSAGE_RATE_LIMIT: int = _get_positive_int(
+        "WEBSOCKET_MESSAGE_RATE_LIMIT", "30"
+    )
+    WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS: int = _get_positive_int(
+        "WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS", "60"
+    )
 
 
 settings = Settings()

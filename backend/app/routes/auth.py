@@ -1,15 +1,32 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from app.config import settings
 from app.dependencies import get_current_user
 from app.schemas.auth import TokenResponse, UserLogin, UserPublic
 from app.schemas.user import UserCreate
 from app.services.auth_service import AuthService
+from app.services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _enforce_auth_rate_limit(request: Request, endpoint: str) -> None:
+    retry_after = auth_rate_limiter.check(
+        f"{endpoint}:{request.client.host if request.client else 'unknown'}",
+        settings.AUTH_RATE_LIMIT_REQUESTS,
+        settings.AUTH_RATE_LIMIT_WINDOW_SECONDS,
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many authentication requests. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register_user(payload: UserCreate):
+def register_user(request: Request, payload: UserCreate):
+    _enforce_auth_rate_limit(request, "register")
     try:
         return AuthService.create_user(payload)
     except HTTPException:
@@ -19,7 +36,8 @@ def register_user(payload: UserCreate):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login_user(payload: UserLogin):
+def login_user(request: Request, payload: UserLogin):
+    _enforce_auth_rate_limit(request, "login")
     try:
         return AuthService.login_user(payload.email, payload.password)
     except HTTPException:

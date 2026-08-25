@@ -194,25 +194,31 @@ def test_one_failed_index_does_not_stop_other_index_attempts(monkeypatch):
 
 def test_verify_indexes_reports_missing_expected_indexes():
     fake_database = {
-        "users": FakeCollection([{"name": "unique_email_idx"}]),
+        "users": FakeCollection([{"name": "unique_email_idx", "key": {"email": 1}, "unique": True}]),
         "conversations": FakeCollection([]),
-        "messages": FakeCollection([{"name": "messages_conversation_id_idx"}]),
+        "messages": FakeCollection([{"name": "messages_conversation_id_idx", "key": {"conversation_id": 1}}]),
     }
 
     result = Database.verify_indexes(fake_database)
 
-    assert result["users"] == {"present": ["unique_email_idx"], "missing": []}
+    assert result["users"] == {
+        "present": ["unique_email_idx"],
+        "missing": [],
+        "misconfigured": [],
+    }
     assert result["conversations"]["present"] == []
     assert set(result["conversations"]["missing"]) == {
         "conversations_participants_idx",
         "unique_conversation_participant_key_idx",
     }
+    assert result["conversations"]["misconfigured"] == []
     assert result["messages"] == {
         "present": ["messages_conversation_id_idx"],
         "missing": [
             "messages_conversation_created_idx",
             "messages_conversation_created_id_idx",
         ],
+        "misconfigured": [],
     }
 
 
@@ -231,3 +237,139 @@ def test_index_verification_failure_is_logged(caplog):
     assert "Failed to verify MongoDB indexes collection=users" in caplog.text
     assert result["users"]["present"] == []
     assert result["users"]["missing"] == ["unique_email_idx"]
+    assert result["users"]["misconfigured"] == []
+
+
+def test_verify_indexes_reports_correctly_configured_indexes_as_present():
+    fake_database = make_fake_database()
+
+    for specification in Database.EXPECTED_INDEXES:
+        fake_database[specification["collection"]].indexes.append(
+            {
+                "name": specification["name"],
+                "key": dict(specification["keys"]),
+                **specification["options"],
+            }
+        )
+    result = Database.verify_indexes(fake_database)
+
+    assert all(not values["missing"] and not values["misconfigured"] for values in result.values())
+
+
+def test_verify_indexes_reports_wrong_key_order_as_misconfigured():
+    fake_database = {
+        "users": FakeCollection(),
+        "conversations": FakeCollection(),
+        "messages": FakeCollection([
+            {
+                "name": "messages_conversation_created_id_idx",
+                "key": {"conversation_id": 1, "_id": 1, "created_at": 1},
+            }
+        ]),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert "messages_conversation_created_id_idx" in result["messages"]["misconfigured"]
+    assert "messages_conversation_created_id_idx" not in result["messages"]["present"]
+
+
+def test_verify_indexes_reports_wrong_key_field_as_misconfigured():
+    fake_database = {
+        "users": FakeCollection([{"name": "unique_email_idx", "key": {"name": 1}}]),
+        "conversations": FakeCollection(),
+        "messages": FakeCollection(),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert result["users"]["misconfigured"] == ["unique_email_idx"]
+    assert result["users"]["present"] == []
+
+
+def test_verify_indexes_reports_missing_unique_option_as_misconfigured():
+    fake_database = {
+        "users": FakeCollection([{"name": "unique_email_idx", "key": {"email": 1}}]),
+        "conversations": FakeCollection(),
+        "messages": FakeCollection(),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert result["users"]["misconfigured"] == ["unique_email_idx"]
+
+
+def test_verify_indexes_reports_missing_sparse_option_as_misconfigured():
+    fake_database = {
+        "users": FakeCollection(),
+        "conversations": FakeCollection([
+            {"name": "unique_conversation_participant_key_idx", "key": {"participant_key": 1}, "unique": True}
+        ]),
+        "messages": FakeCollection(),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert result["conversations"]["misconfigured"] == [
+        "unique_conversation_participant_key_idx"
+    ]
+
+
+def test_verify_indexes_reports_wrong_unique_and_sparse_values_as_misconfigured():
+    fake_database = {
+        "users": FakeCollection(),
+        "conversations": FakeCollection([
+            {
+                "name": "unique_conversation_participant_key_idx",
+                "key": {"participant_key": 1},
+                "unique": False,
+                "sparse": False,
+            }
+        ]),
+        "messages": FakeCollection(),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert result["conversations"]["misconfigured"] == [
+        "unique_conversation_participant_key_idx"
+    ]
+
+
+def test_verify_indexes_reports_misconfiguration_without_blocking_other_collections():
+    fake_database = {
+        "users": FakeCollection([{"name": "unique_email_idx", "key": {"name": 1}}]),
+        "conversations": FakeCollection([
+            {"name": "conversations_participants_idx", "key": {"participants": 1}}
+        ]),
+        "messages": FakeCollection([
+            {"name": "messages_conversation_id_idx", "key": {"conversation_id": 1}}
+        ]),
+    }
+
+    result = Database.verify_indexes(fake_database)
+
+    assert result["users"]["misconfigured"] == ["unique_email_idx"]
+    assert result["conversations"]["present"] == ["conversations_participants_idx"]
+    assert result["messages"]["present"] == ["messages_conversation_id_idx"]
+
+
+def test_misconfiguration_logging_contains_only_safe_identifiers(caplog):
+    fake_database = {
+        "users": FakeCollection(),
+        "conversations": FakeCollection(),
+        "messages": FakeCollection([
+            {
+                "name": "messages_conversation_created_id_idx",
+                "key": {"wrong_field": 1},
+                "content": "must not be logged",
+            }
+        ]),
+    }
+
+    with caplog.at_level("ERROR"):
+        Database.verify_indexes(fake_database)
+
+    assert "collection=messages" in caplog.text
+    assert "index=messages_conversation_created_id_idx" in caplog.text
+    assert "must not be logged" not in caplog.text

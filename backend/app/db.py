@@ -96,10 +96,11 @@ class Database:
             expected_by_collection.setdefault(index["collection"], []).append(index["name"])
 
         for collection_name, expected_names in expected_by_collection.items():
-            present_names: set[str] = set()
+            actual_indexes: dict[str, Any] = {}
             try:
-                present_names = {
-                    index["name"] for index in database[collection_name].list_indexes()
+                actual_indexes = {
+                    index["name"]: index
+                    for index in database[collection_name].list_indexes()
                 }
             except PyMongoError:
                 logger.error(
@@ -107,12 +108,44 @@ class Database:
                     collection_name,
                 )
 
+            present_names: list[str] = []
+            missing_names: list[str] = []
+            misconfigured_names: list[str] = []
+            for index in cls.EXPECTED_INDEXES:
+                if index["collection"] != collection_name:
+                    continue
+
+                actual_index = actual_indexes.get(index["name"])
+                if actual_index is None:
+                    missing_names.append(index["name"])
+                elif cls._index_matches(index, actual_index):
+                    present_names.append(index["name"])
+                else:
+                    misconfigured_names.append(index["name"])
+                    logger.error(
+                        "Misconfigured MongoDB index collection=%s index=%s",
+                        collection_name,
+                        index["name"],
+                    )
+
             verification[collection_name] = {
-                "present": [name for name in expected_names if name in present_names],
-                "missing": [name for name in expected_names if name not in present_names],
+                "present": present_names,
+                "missing": missing_names,
+                "misconfigured": misconfigured_names,
             }
 
         return verification
+
+    @staticmethod
+    def _index_matches(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+        actual_keys = list(actual.get("key", {}).items())
+        if actual_keys != expected["keys"]:
+            return False
+
+        return all(
+            actual.get(option_name) == option_value
+            for option_name, option_value in expected["options"].items()
+        )
 
     @classmethod
     def health_check(cls) -> dict[str, str | bool]:

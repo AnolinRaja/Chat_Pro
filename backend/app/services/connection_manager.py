@@ -34,6 +34,18 @@ class ConnectionManager:
             "last_activity": now,
         }
 
+    def try_add_connection(
+        self,
+        conversation_id: str,
+        websocket: WebSocket,
+        user_id: str,
+        max_connections: int,
+    ) -> bool:
+        if self.get_user_connection_count(user_id) >= max_connections:
+            return False
+        self.add_connection(conversation_id, websocket, user_id)
+        return True
+
     def update_activity(self, websocket: WebSocket) -> None:
         if websocket in self._metadata:
             self._metadata[websocket]["last_activity"] = datetime.now(timezone.utc)

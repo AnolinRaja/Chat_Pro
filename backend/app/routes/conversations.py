@@ -42,12 +42,21 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         await websocket.close(code=1008)
         return
 
-    if connection_manager.get_user_connection_count(current_user["id"]) >= settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER:
+    admitted = connection_manager.try_add_connection(
+        conversation_id,
+        websocket,
+        current_user["id"],
+        settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER,
+    )
+    if not admitted:
         await websocket.close(code=1008)
         return
 
-    await websocket.accept()
-    connection_manager.add_connection(conversation_id, websocket, current_user["id"])
+    try:
+        await websocket.accept()
+    except Exception:
+        connection_manager.remove_connection(conversation_id, websocket)
+        raise
     logger.info(
         "WebSocket connection established for conversation_id=%s user_id=%s",
         conversation_id,

@@ -57,6 +57,19 @@ class Database:
     )
 
     @classmethod
+    def close_client(cls) -> None:
+        client = cls.client
+        cls.client = None
+        if client is None:
+            return
+
+        try:
+            client.close()
+            logger.info("MongoDB client closed cleanly")
+        except Exception:
+            logger.warning("MongoDB client shutdown failed")
+
+    @classmethod
     def get_client(cls) -> MongoClient:
         if cls.client is None:
             cls.client = MongoClient(settings.MONGODB_URI, serverSelectionTimeoutMS=5000)
@@ -155,6 +168,40 @@ class Database:
             return {"connected": True, "database": settings.MONGODB_DB}
         except PyMongoError as exc:
             return {"connected": False, "database": settings.MONGODB_DB, "error": str(exc)}
+
+    @classmethod
+    def get_readiness_status(cls) -> dict[str, Any]:
+        database_name = settings.MONGODB_DB
+        try:
+            client = cls.get_client()
+            client.admin.command("ping")
+            connected = True
+        except Exception:
+            logger.warning("MongoDB readiness check failed database=%s", database_name)
+            return {"ready": False, "connected": False, "database": database_name, "indexes": {}}
+
+        try:
+            database = client[database_name]
+            verification = cls.verify_indexes(database)
+        except Exception:
+            logger.warning("MongoDB readiness could not verify indexes database=%s", database_name)
+            return {"ready": False, "connected": True, "database": database_name, "indexes": {}}
+
+        has_missing = any(bool(details["missing"]) for details in verification.values())
+        has_misconfigured = any(bool(details["misconfigured"]) for details in verification.values())
+        ready = not has_missing and not has_misconfigured
+
+        if ready:
+            logger.info("MongoDB readiness check passed database=%s", database_name)
+        else:
+            logger.warning("MongoDB readiness check failed database=%s", database_name)
+
+        return {
+            "ready": ready,
+            "connected": connected,
+            "database": database_name,
+            "indexes": verification,
+        }
 
 
 db = Database()

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.config import settings
@@ -8,15 +10,23 @@ from app.services.auth_service import AuthService
 from app.services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 def _enforce_auth_rate_limit(request: Request, endpoint: str) -> None:
+    client_host = request.client.host if request.client else "unknown"
     retry_after = auth_rate_limiter.check(
-        f"{endpoint}:{request.client.host if request.client else 'unknown'}",
+        f"{endpoint}:{client_host}",
         settings.AUTH_RATE_LIMIT_REQUESTS,
         settings.AUTH_RATE_LIMIT_WINDOW_SECONDS,
     )
     if retry_after is not None:
+        logger.warning(
+            "Authentication rate limit exceeded endpoint=%s client_ip=%s retry_after_seconds=%s",
+            endpoint,
+            client_host,
+            retry_after,
+        )
         raise HTTPException(
             status_code=429,
             detail="Too many authentication requests. Try again later.",

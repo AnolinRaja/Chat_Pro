@@ -49,6 +49,12 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER,
     )
     if not admitted:
+        logger.warning(
+            "WebSocket connection rejected due to user limit conversation_id=%s user_id=%s limit=%s",
+            conversation_id,
+            current_user["id"],
+            settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER,
+        )
         await websocket.close(code=1008)
         return
 
@@ -67,7 +73,15 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
         while True:
             raw_message = await websocket.receive_text()
             connection_manager.update_activity(websocket)
-            if len(raw_message.encode("utf-8")) > settings.WEBSOCKET_MAX_MESSAGE_SIZE_BYTES:
+            message_size = len(raw_message.encode("utf-8"))
+            if message_size > settings.WEBSOCKET_MAX_MESSAGE_SIZE_BYTES:
+                logger.warning(
+                    "WebSocket message rejected due to size limit conversation_id=%s user_id=%s size_bytes=%s limit_bytes=%s",
+                    conversation_id,
+                    current_user["id"],
+                    message_size,
+                    settings.WEBSOCKET_MAX_MESSAGE_SIZE_BYTES,
+                )
                 await websocket.send_json({
                     "type": "error",
                     "data": {"detail": "WebSocket message is too large."},
@@ -80,6 +94,12 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
                 settings.WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS,
             )
             if retry_after is not None:
+                logger.warning(
+                    "WebSocket message rejected due to rate limit conversation_id=%s user_id=%s retry_after_seconds=%s",
+                    conversation_id,
+                    current_user["id"],
+                    retry_after,
+                )
                 await websocket.send_json({
                     "type": "error",
                     "data": {"detail": "Too many WebSocket messages. Try again later."},

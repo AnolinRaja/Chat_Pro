@@ -189,6 +189,7 @@ class Database:
         try:
             client = cls.get_client()
             client.admin.command("ping")
+            cls._record_availability(True)
             connected = True
         except Exception:
             cls._record_availability(False)
@@ -199,14 +200,12 @@ class Database:
             database = client[database_name]
             verification = cls.verify_indexes(database)
         except Exception:
-            cls._record_availability(False)
             logger.warning("MongoDB readiness could not verify indexes database=%s", database_name)
             return {"ready": False, "connected": True, "database": database_name, "indexes": {}}
 
         has_missing = any(bool(details["missing"]) for details in verification.values())
         has_misconfigured = any(bool(details["misconfigured"]) for details in verification.values())
         ready = not has_missing and not has_misconfigured
-        cls._record_availability(ready)
 
         if ready:
             logger.info("MongoDB readiness check passed database=%s", database_name)

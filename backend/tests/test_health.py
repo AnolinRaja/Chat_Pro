@@ -141,6 +141,25 @@ def test_database_degradation_logging_is_safe_and_transition_based(monkeypatch, 
     assert "password" not in caplog.text
 
 
+def test_index_failure_does_not_mark_reachable_database_unavailable(monkeypatch, caplog):
+    fake_client = MagicMock()
+    fake_client.admin.command.return_value = None
+    invalid_indexes = {
+        "users": {"present": [], "missing": ["unique_email_idx"], "misconfigured": []}
+    }
+    monkeypatch.setattr(Database, "client", fake_client, raising=False)
+    monkeypatch.setattr(Database, "_available", None, raising=False)
+    monkeypatch.setattr(Database, "verify_indexes", classmethod(lambda cls, database: invalid_indexes))
+
+    with caplog.at_level("INFO"):
+        readiness = Database.get_readiness_status()
+
+    assert readiness["ready"] is False
+    assert readiness["connected"] is True
+    assert "MongoDB availability changed state=available" in caplog.text
+    assert "MongoDB availability changed state=unavailable" not in caplog.text
+
+
 def test_database_close_client_closes_initialized_client(monkeypatch):
     fake_client = Mock()
     monkeypatch.setattr(Database, "client", fake_client, raising=False)

@@ -1,5 +1,7 @@
 import asyncio
 import importlib
+import logging
+import uuid
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -146,3 +148,76 @@ def test_websocket_message_size_rejection_logs_safely(monkeypatch, caplog):
     assert "WebSocket message rejected" in caplog.text
     assert "sensitive-token-value" not in caplog.text
     assert "abcde" not in caplog.text
+
+
+def test_http_responses_include_request_id_and_unique_identifiers():
+    first = client.get("/health")
+    second = client.get("/health")
+
+    assert "X-Request-ID" in first.headers
+    assert "X-Request-ID" in second.headers
+    assert first.headers["X-Request-ID"] != second.headers["X-Request-ID"]
+    uuid.UUID(first.headers["X-Request-ID"])
+    uuid.UUID(second.headers["X-Request-ID"])
+
+
+def test_request_id_is_logged_with_timing_and_method_path_status(caplog):
+    with caplog.at_level(logging.INFO):
+        response = client.get("/health")
+
+    request_id = response.headers["X-Request-ID"]
+    assert request_id in caplog.text
+    assert "HTTP request completed" in caplog.text
+    assert "GET" in caplog.text
+    assert "/health" in caplog.text
+    assert str(response.status_code) in caplog.text
+    assert "duration_ms=" in caplog.text
+
+
+def test_request_id_in_logs_for_unexpected_server_errors_and_no_secret_leaks(caplog):
+    @app.get("/debug-5xx")
+    def debug_5xx():
+        raise RuntimeError("boom and secret=should-not-leak")
+
+    try:
+        with caplog.at_level(logging.ERROR):
+            response = client.get("/debug-5xx")
+    finally:
+        routes = [route for route in app.routes if getattr(route, "path", None) == "/debug-5xx"]
+        for route in routes:
+            app.routes.remove(route)
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload == {"detail": "Internal Server Error"}
+    request_id = response.headers["X-Request-ID"]
+    assert request_id in caplog.text
+    assert "boom and secret=should-not-leak" not in response.text
+    assert "secret=should-not-leak" not in caplog.text
+    assert "Authorization" not in caplog.text
+
+
+def test_auth_header_not_logged_in_request_logging(caplog):
+    with caplog.at_level(logging.INFO):
+        response = client.get(
+            "/health",
+            headers={
+                "Authorization": "Bearer top-secret-token",
+                "X-Request-ID": "incoming-id-should-be-replaced",
+            },
+        )
+
+    assert response.headers["X-Request-ID"] != "incoming-id-should-be-replaced"
+    assert "top-secret-token" not in caplog.text
+    assert "Authorization" not in caplog.text
+    assert "Bearer" not in caplog.text
+
+
+def test_health_and_ready_contracts_remain_unchanged_by_request_observability():
+    health = client.get("/health")
+    ready = client.get("/ready")
+
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+    assert ready.status_code in {200, 503}
+    assert "ready" in ready.json()

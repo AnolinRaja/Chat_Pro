@@ -13,7 +13,10 @@ class UserCreate(BaseModel):
     @field_validator("name")
     @classmethod
     def validate_name(cls, value: str) -> str:
-        return value.strip()
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Name cannot be empty or whitespace-only.")
+        return normalized
 
     @field_validator("email")
     @classmethod

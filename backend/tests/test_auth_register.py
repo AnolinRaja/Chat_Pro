@@ -83,6 +83,16 @@ def test_register_short_password():
     assert response.status_code == 422
 
 
+def test_register_whitespace_only_name_rejected():
+    response = register_user({
+        "name": "   ",
+        "email": "phase2@example.com",
+        "password": "StrongPassword123",
+    })
+
+    assert response.status_code == 422
+
+
 def test_register_duplicate_email_rejected():
     first = register_user({
         "name": "First User",

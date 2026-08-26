@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 BACKEND_DIR = Path(__file__).parents[1]
@@ -23,6 +24,16 @@ def test_dockerfile_healthcheck_uses_liveness_endpoint():
     assert "HEALTHCHECK" in dockerfile
     assert "/health" in dockerfile
     assert "127.0.0.1" in dockerfile
+
+
+def test_docker_healthcheck_timeout_exceeds_mongodb_timeout():
+    dockerfile = DOCKERFILE.read_text()
+    database = (BACKEND_DIR / "app" / "db.py").read_text()
+
+    healthcheck_timeout = int(re.search(r"--timeout=(\d+)s", dockerfile).group(1))
+    mongodb_timeout = int(re.search(r"serverSelectionTimeoutMS=(\d+)", database).group(1)) / 1000
+
+    assert healthcheck_timeout > mongodb_timeout
 
 
 def test_dockerignore_excludes_secrets_and_local_artifacts():

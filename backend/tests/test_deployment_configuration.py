@@ -1,0 +1,48 @@
+from pathlib import Path
+
+
+BACKEND_DIR = Path(__file__).parents[1]
+DOCKERFILE = BACKEND_DIR / "Dockerfile"
+DOCKERIGNORE = BACKEND_DIR / ".dockerignore"
+README = BACKEND_DIR.parent / "README.md"
+
+
+def test_dockerfile_uses_single_production_uvicorn_worker():
+    dockerfile = DOCKERFILE.read_text()
+
+    assert "FROM python:3.13-slim" in dockerfile
+    assert "--host 0.0.0.0" in dockerfile
+    assert "--workers 1" in dockerfile
+    assert "--reload" not in dockerfile
+    assert "pip install --no-cache-dir -r requirements.txt" in dockerfile
+
+
+def test_dockerfile_healthcheck_uses_liveness_endpoint():
+    dockerfile = DOCKERFILE.read_text()
+
+    assert "HEALTHCHECK" in dockerfile
+    assert "/health" in dockerfile
+    assert "127.0.0.1" in dockerfile
+
+
+def test_dockerignore_excludes_secrets_and_local_artifacts():
+    dockerignore = DOCKERIGNORE.read_text().splitlines()
+
+    for entry in [".env", ".env.*", ".git", ".venv", "__pycache__", ".pytest_cache", "tests"]:
+        assert entry in dockerignore
+
+
+def test_readme_documents_container_runtime_requirements():
+    readme = README.read_text()
+
+    for text in [
+        "docker build -f backend/Dockerfile -t chatpro-backend backend",
+        "MONGODB_URI",
+        "MONGODB_DB",
+        "JWT_SECRET_KEY",
+        "/health",
+        "/ready",
+        "one application process",
+        "external MongoDB",
+    ]:
+        assert text in readme

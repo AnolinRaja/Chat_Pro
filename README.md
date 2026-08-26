@@ -93,6 +93,28 @@ Edit `.env` with a reachable MongoDB URI and a unique JWT secret of at least 32 
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
+## Container deployment
+
+Build the production-oriented backend image from the repository root:
+
+```bash
+docker build -f backend/Dockerfile -t chatpro-backend backend
+```
+
+Run one application process and one Uvicorn worker. Supply `MONGODB_URI`, `MONGODB_DB`, and `JWT_SECRET_KEY` at runtime through secure environment configuration; secrets are excluded from the image.
+
+```bash
+docker run --rm -p 8000:8000 \
+  -e MONGODB_URI="mongodb://host.docker.internal:27017" \
+  -e MONGODB_DB="chatpro" \
+  -e JWT_SECRET_KEY="replace-with-a-secret-of-at-least-32-characters" \
+  chatpro-backend
+```
+
+The backend uses an external MongoDB service that runs outside the application container. Production MongoDB deployments should use authentication, TLS, restricted network access, and secure credential injection. Use `/health` for container liveness and `/ready` for traffic readiness; `/ready` is not ready while MongoDB is unavailable or required indexes are invalid.
+
+The one-process limit is required because WebSocket connection state and rate-limit state are process-local. Horizontal scaling and multiple workers are deferred until distributed coordination is designed.
+
 ## API documentation
 
 FastAPI provides interactive OpenAPI documentation at:
@@ -272,4 +294,3 @@ pytest -q
 - WebSocket connections are limited to `WEBSOCKET_MAX_CONNECTIONS_PER_USER` per user, and incoming message size and rate are bounded by the corresponding `WEBSOCKET_*` settings.
  
  
-

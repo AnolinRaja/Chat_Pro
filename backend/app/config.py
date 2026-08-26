@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -42,13 +43,29 @@ def _get_positive_int(name: str, default: str) -> int:
     return value
 
 
+def _get_mongodb_uri() -> str:
+    value = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+    if value is None:
+        raise ValueError("MONGODB_URI must be configured as a valid MongoDB connection string.")
+
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("MONGODB_URI must be configured as a valid MongoDB connection string.")
+
+    parsed = urlparse(normalized)
+    if parsed.scheme in {"mongodb", "mongodb+srv"} and parsed.hostname:
+        return normalized
+
+    raise ValueError("MONGODB_URI must be a valid MongoDB connection string.")
+
+
 class Settings:
     APP_NAME: str = os.getenv("APP_NAME", "chatpro-backend")
     APP_VERSION: str = os.getenv("APP_VERSION", "0.1.0")
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
-    MONGODB_URI: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+    MONGODB_URI: str = _get_mongodb_uri()
     MONGODB_DB: str = os.getenv("MONGODB_DB", "chatpro")
     JWT_SECRET_KEY: str = _get_jwt_secret_key()
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")

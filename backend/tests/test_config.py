@@ -1,6 +1,11 @@
 import pytest
 
-from app.config import _get_jwt_secret_key, _get_websocket_idle_threshold_seconds, settings
+from app.config import (
+    _get_jwt_secret_key,
+    _get_mongodb_uri,
+    _get_websocket_idle_threshold_seconds,
+    settings,
+)
 
 
 @pytest.mark.parametrize("value", [1, 86400])
@@ -130,3 +135,18 @@ def test_explicit_secret_keeps_development_and_test_configuration_usable(monkeyp
 
     assert _get_jwt_secret_key() == secret
     assert settings.JWT_SECRET_KEY
+
+
+def test_mongodb_uri_accepts_valid_values(monkeypatch):
+    uri = "mongodb://localhost:27017/chatpro"
+    monkeypatch.setenv("MONGODB_URI", uri)
+
+    assert _get_mongodb_uri() == uri
+
+
+@pytest.mark.parametrize("value", ["", "   ", "mongodb://", "not-a-mongodb-uri", "http://localhost:27017"])
+def test_mongodb_uri_rejects_invalid_values(monkeypatch, value):
+    monkeypatch.setenv("MONGODB_URI", value)
+
+    with pytest.raises(ValueError, match="MongoDB"):
+        _get_mongodb_uri()

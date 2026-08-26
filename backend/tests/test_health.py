@@ -86,6 +86,20 @@ def test_ready_endpoint_does_not_expose_sensitive_fields(monkeypatch):
     assert "super-secret-value" not in response.text
 
 
+def test_database_health_check_does_not_expose_connection_details(monkeypatch):
+    monkeypatch.setattr(
+        Database,
+        "get_client",
+        Mock(side_effect=RuntimeError("mongodb://user:secret@mongodb.example.com:27017/chatpro?authSource=admin")),
+    )
+
+    payload = Database.health_check()
+
+    assert payload["connected"] is False
+    assert "mongodb://user:secret@mongodb.example.com" not in str(payload)
+    assert "authSource" not in str(payload)
+
+
 def test_database_close_client_closes_initialized_client(monkeypatch):
     fake_client = Mock()
     monkeypatch.setattr(Database, "client", fake_client, raising=False)

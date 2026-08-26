@@ -65,6 +65,10 @@ Copy `backend/.env.example` to `backend/.env` and replace the placeholders. Do n
 
 MongoDB must be running and reachable. Index initialization is attempted during application import; failures are logged and verified without causing startup to fail solely because an index is unavailable.
 
+When MongoDB is unavailable, the application remains alive but reports itself as not ready for database-backed requests. The `GET /health` endpoint is a liveness check; `GET /ready` is the database/index readiness gate.
+
+Current in-memory rate limiting and active WebSocket tracking are process-local. In a multi-instance deployment, additional distributed infrastructure is required to keep rate limits and live connection state consistent across nodes.
+
 ## Local setup
 
 From the repository root:

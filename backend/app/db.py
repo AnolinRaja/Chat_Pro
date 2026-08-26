@@ -166,8 +166,9 @@ class Database:
             client = cls.get_client()
             client.admin.command("ping")
             return {"connected": True, "database": settings.MONGODB_DB}
-        except PyMongoError as exc:
-            return {"connected": False, "database": settings.MONGODB_DB, "error": str(exc)}
+        except Exception:
+            logger.warning("MongoDB health check failed database=%s", settings.MONGODB_DB)
+            return {"connected": False, "database": settings.MONGODB_DB}
 
     @classmethod
     def get_readiness_status(cls) -> dict[str, Any]:

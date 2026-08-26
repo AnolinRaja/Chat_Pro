@@ -2,7 +2,7 @@ import asyncio
 import importlib
 import logging
 import uuid
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -98,6 +98,47 @@ def test_database_health_check_does_not_expose_connection_details(monkeypatch):
     assert payload["connected"] is False
     assert "mongodb://user:secret@mongodb.example.com" not in str(payload)
     assert "authSource" not in str(payload)
+
+
+def test_database_readiness_recovers_without_recreating_client(monkeypatch):
+    fake_client = MagicMock()
+    fake_database = Mock()
+    fake_client.admin.command.side_effect = [RuntimeError("database unavailable"), None, None]
+    valid_indexes = {
+        collection_name: {"present": [], "missing": [], "misconfigured": []}
+        for collection_name in {specification["collection"] for specification in Database.EXPECTED_INDEXES}
+    }
+    for specification in Database.EXPECTED_INDEXES:
+        valid_indexes[specification["collection"]]["present"].append(specification["name"])
+    fake_client.__getitem__.return_value = fake_database
+    monkeypatch.setattr(Database, "client", fake_client, raising=False)
+    monkeypatch.setattr(Database, "verify_indexes", classmethod(lambda cls, database: valid_indexes))
+
+    unavailable = Database.get_readiness_status()
+    recovered = Database.get_readiness_status()
+
+    assert unavailable["ready"] is False
+    assert recovered["ready"] is True
+    assert Database.client is fake_client
+    assert fake_client.admin.command.call_count == 2
+
+
+def test_database_degradation_logging_is_safe_and_transition_based(monkeypatch, caplog):
+    fake_client = Mock()
+    fake_client.admin.command.side_effect = RuntimeError(
+        "mongodb://user:password@db.example.com/chatpro?authSource=admin"
+    )
+    monkeypatch.setattr(Database, "client", fake_client, raising=False)
+    monkeypatch.setattr(Database, "_available", None, raising=False)
+
+    with caplog.at_level("INFO"):
+        Database.get_readiness_status()
+        Database.get_readiness_status()
+
+    assert caplog.text.count("MongoDB availability changed state=unavailable") == 1
+    assert "mongodb://user:password@db.example.com" not in caplog.text
+    assert "authSource" not in caplog.text
+    assert "password" not in caplog.text
 
 
 def test_database_close_client_closes_initialized_client(monkeypatch):

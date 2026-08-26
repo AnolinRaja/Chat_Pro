@@ -36,6 +36,15 @@ def test_docker_healthcheck_timeout_exceeds_mongodb_timeout():
     assert healthcheck_timeout > mongodb_timeout
 
 
+def test_embedded_healthcheck_timeout_is_within_docker_timeout():
+    dockerfile = DOCKERFILE.read_text()
+    docker_timeout = int(re.search(r"--timeout=(\d+)s", dockerfile).group(1))
+    http_timeout = int(re.search(r"urlopen\([^\n]+timeout=(\d+)\)", dockerfile).group(1))
+
+    assert http_timeout > 5
+    assert http_timeout <= docker_timeout
+
+
 def test_dockerignore_excludes_secrets_and_local_artifacts():
     dockerignore = DOCKERIGNORE.read_text().splitlines()
 

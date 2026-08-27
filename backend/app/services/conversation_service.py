@@ -43,7 +43,7 @@ class ConversationService:
         if existing is None:
             existing = conversations_collection.find_one({"participants": {"$all": sorted_participants}})
         if existing:
-            return ConversationService._format_conversation(existing)
+            return ConversationService._format_conversation(existing, user_id)
 
         now = datetime.now(timezone.utc)
         doc = {
@@ -58,7 +58,7 @@ class ConversationService:
         except DuplicateKeyError:
             existing = conversations_collection.find_one({"participant_key": participant_key})
             if existing is not None:
-                return ConversationService._format_conversation(existing)
+                return ConversationService._format_conversation(existing, user_id)
             raise HTTPException(status_code=500, detail="Unable to create conversation.")
         except PyMongoError:
             raise HTTPException(status_code=500, detail="Unable to create conversation.")
@@ -67,7 +67,7 @@ class ConversationService:
         if created is None:
             raise HTTPException(status_code=500, detail="Unable to create conversation.")
 
-        return ConversationService._format_conversation(created)
+        return ConversationService._format_conversation(created, user_id)
 
     @staticmethod
     def list_conversations(user_id: str) -> list[dict[str, Any]]:
@@ -79,7 +79,7 @@ class ConversationService:
         conversations_collection = db.get_db()["conversations"]
         conversations = list(conversations_collection.find({"participants": user_oid}).sort("updated_at", -1))
 
-        return [ConversationService._format_conversation(conv) for conv in conversations]
+        return [ConversationService._format_conversation(conv, user_id) for conv in conversations]
 
     @staticmethod
     def get_conversation(conversation_id: str, user_id: str) -> dict[str, Any]:
@@ -98,13 +98,28 @@ class ConversationService:
         if user_oid not in conversation.get("participants", []):
             raise HTTPException(status_code=403, detail="Access denied.")
 
-        return ConversationService._format_conversation(conversation)
+        return ConversationService._format_conversation(conversation, user_id)
 
     @staticmethod
-    def _format_conversation(doc: dict[str, Any]) -> dict[str, Any]:
+    def _format_conversation(doc: dict[str, Any], user_id: str) -> dict[str, Any]:
+        participant_ids = [str(participant) for participant in doc["participants"]]
+        other_user_id = next(
+            (participant_id for participant_id in participant_ids if participant_id != user_id),
+            participant_ids[0] if participant_ids else "",
+        )
+        other_user = db.get_db()["users"].find_one(
+            {"_id": ObjectId(other_user_id)},
+            {"name": 1, "email": 1},
+        ) if other_user_id else None
+
         return {
             "id": str(doc["_id"]),
-            "participants": [str(p) for p in doc["participants"]],
+            "participants": participant_ids,
+            "other_user": {
+                "id": other_user_id,
+                "name": other_user.get("name", "") if other_user else "",
+                "email": other_user.get("email", "") if other_user else "",
+            },
             "created_at": doc["created_at"],
             "updated_at": doc["updated_at"],
         }

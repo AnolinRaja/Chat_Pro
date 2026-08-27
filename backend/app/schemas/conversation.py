@@ -7,9 +7,16 @@ class ConversationCreate(BaseModel):
     other_user_id: str = Field(..., min_length=1)
 
 
+class ConversationUser(BaseModel):
+    id: str
+    name: str
+    email: str
+
+
 class ConversationResponse(BaseModel):
     id: str
     participants: list[str]
+    other_user: ConversationUser
     created_at: datetime
     updated_at: datetime
 

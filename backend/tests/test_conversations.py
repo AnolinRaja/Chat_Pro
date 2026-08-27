@@ -144,6 +144,27 @@ def test_user_can_list_their_conversations():
     assert len(conversations) == 1
 
 
+def test_each_user_sees_the_other_participants_public_identity():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    created = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = created.json()["id"]
+
+    user1_view = client.get("/conversations", headers={"Authorization": f"Bearer {token1}"})
+    user2_view = client.get("/conversations", headers={"Authorization": f"Bearer {token2}"})
+
+    assert user1_view.json()[0]["other_user"]["name"] == TEST_USERS[1]["name"]
+    assert user2_view.json()[0]["other_user"]["name"] == TEST_USERS[0]["name"]
+    assert "password_hash" not in user1_view.json()[0]["other_user"]
+    assert user2_view.json()[0]["id"] == conversation_id
+
+
 def test_user_cannot_see_another_users_conversations():
     token1 = register_and_login(TEST_USERS[0])
     token2 = register_and_login(TEST_USERS[1])

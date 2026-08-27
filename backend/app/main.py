@@ -10,6 +10,7 @@ from app.config import settings
 from app.db import db
 from app.routes.auth import router as auth_router
 from app.routes.conversations import router as conversations_router
+from app.routes.users import router as users_router
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ async def request_observability_middleware(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(conversations_router)
+app.include_router(users_router)
 
 
 @app.get("/health")

@@ -165,7 +165,51 @@ def test_response_shape_remains_unchanged():
         headers={"Authorization": f"Bearer {token}"},
     )
 
-    assert set(response.json()) == {"id", "participants", "created_at", "updated_at"}
+    body = response.json()
+    assert set(body) == {"id", "participants", "other_user", "created_at", "updated_at"}
+    assert body["other_user"] == {
+        "id": str(other_user["_id"]),
+        "name": TEST_USERS[1]["name"],
+        "email": TEST_USERS[1]["email"],
+    }
+
+
+def test_conversation_and_messages_are_available_after_fresh_login():
+    token1 = register_and_login(TEST_USERS[0])
+    register_and_login(TEST_USERS[1])
+    other_user = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    created = client.post(
+        "/conversations",
+        json={"other_user_id": str(other_user["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conversation_id = created.json()["id"]
+    sent = client.post(
+        f"/conversations/{conversation_id}/messages",
+        json={"content": "Persisted message"},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    assert sent.status_code == 201
+
+    fresh_token = client.post(
+        "/auth/login",
+        json={"email": TEST_USERS[0]["email"], "password": TEST_USERS[0]["password"]},
+    ).json()["access_token"]
+    conversations = client.get(
+        "/conversations",
+        headers={"Authorization": f"Bearer {fresh_token}"},
+    )
+    messages = client.get(
+        f"/conversations/{conversation_id}/messages",
+        headers={"Authorization": f"Bearer {fresh_token}"},
+    )
+
+    assert conversations.status_code == 200
+    assert conversations.json()[0]["id"] == conversation_id
+    assert conversations.json()[0]["other_user"]["name"] == TEST_USERS[1]["name"]
+    assert messages.status_code == 200
+    assert messages.json()[0]["content"] == "Persisted message"
 
 
 def test_existing_authorization_behavior_remains_unchanged():

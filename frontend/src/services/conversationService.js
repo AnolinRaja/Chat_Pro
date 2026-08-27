@@ -1,5 +1,10 @@
 import api from './api.js'
 
+export async function searchUsers(query) {
+  const response = await api.get('/users/search', { params: { q: query } })
+  return response.data.users
+}
+
 export async function getConversations() {
   const response = await api.get('/conversations')
   return response.data

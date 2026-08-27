@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import ConversationList from '../components/ConversationList.jsx'
 import MessageComposer from '../components/MessageComposer.jsx'
 import MessageList from '../components/MessageList.jsx'
+import UserSearch from '../components/UserSearch.jsx'
 import { useAuth } from '../context/useAuth.js'
 import { useConversationSocket } from '../hooks/useConversationSocket.js'
 import { createConversation, getConversations, getMessages } from '../services/conversationService.js'
@@ -30,7 +31,7 @@ function ChatPage() {
   const [messageError, setMessageError] = useState('')
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
-  const [newUserId, setNewUserId] = useState('')
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => {
@@ -90,25 +91,30 @@ function ChatPage() {
     return false
   }
 
-  const handleCreate = async (event) => {
-    event.preventDefault()
-    if (!newUserId.trim() || isCreating) return
+  const handleUserSelect = async (selectedUser) => {
+    if (isCreating) return
+    if (selectedUser.id === user?.id) throw new Error('You cannot start a chat with yourself.')
     setIsCreating(true)
     setConversationError('')
     try {
-      const conversation = await createConversation(newUserId.trim())
-      setConversations((current) => current.some((item) => item.id === conversation.id) ? current : [conversation, ...current])
-      setSelectedConversation(conversation)
-      setNewUserId('')
+      const existingConversation = conversations.find((conversation) => (
+        conversation.participants.includes(user.id) && conversation.participants.includes(selectedUser.id)
+      ))
+      const conversation = existingConversation || await createConversation(selectedUser.id)
+      const refreshedConversations = await getConversations()
+      setConversations(refreshedConversations)
+      const refreshedConversation = refreshedConversations.find((item) => item.id === conversation.id) || conversation
+      setSelectedConversation(refreshedConversation)
+      setIsNewChatOpen(false)
     } catch (error) {
-      setConversationError(formatError(error, 'Unable to create conversation.'))
+      setConversationError(error.message || formatError(error, 'Unable to create conversation.'))
+      throw error
     } finally {
       setIsCreating(false)
     }
   }
 
-  const participant = selectedConversation?.participants.find((id) => id !== user?.id) || selectedConversation?.participants[0]
-  const participantLabel = participant ? `User ${participant.slice(-8)}` : 'Conversation'
+  const participantLabel = selectedConversation?.other_user?.name || 'Conversation'
 
   return (
     <section className="mx-auto flex h-[calc(100vh-73px)] max-w-7xl overflow-hidden bg-white shadow-[0_18px_50px_rgba(25,60,52,0.08)] lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-2xl lg:border lg:border-[#dbe5e1]">
@@ -118,12 +124,8 @@ function ChatPage() {
           <h1 className="mt-1 truncate text-lg font-semibold">{user?.name}</h1>
           <p className="truncate text-sm text-[#60736e]">{user?.email}</p>
         </div>
-        <div className="flex items-center justify-between px-5 py-4"><h2 className="font-semibold">Conversations</h2><span className="text-xs text-[#60736e]">{conversations.length}</span></div>
-        <div className="min-h-0 flex-1 overflow-y-auto"><ConversationList conversations={conversations} selectedId={selectedConversation?.id} currentUserId={user?.id} onSelect={setSelectedConversation} isLoading={isLoadingConversations} error={conversationError} /></div>
-        <form onSubmit={handleCreate} className="border-t border-[#dbe5e1] p-4">
-          <label className="text-xs font-semibold uppercase tracking-[0.12em] text-[#60736e]" htmlFor="other-user-id">Start with user ID</label>
-          <div className="mt-2 flex gap-2"><input id="other-user-id" value={newUserId} onChange={(event) => setNewUserId(event.target.value)} placeholder="MongoDB user ID" className="min-w-0 flex-1 rounded-lg border border-[#cddbd6] px-3 py-2 text-xs outline-none focus:border-[#0f766e]" /><button type="submit" disabled={isCreating || !newUserId.trim()} className="rounded-lg bg-[#172321] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{isCreating ? '...' : 'Start'}</button></div>
-        </form>
+        <div className="flex items-center justify-between px-5 py-4"><h2 className="font-semibold">Conversations</h2><button type="button" onClick={() => setIsNewChatOpen(true)} className="rounded-lg bg-[#0f766e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0b5f59]">+ New Chat</button></div>
+        <div className="min-h-0 flex-1 overflow-y-auto"><ConversationList conversations={conversations} selectedId={selectedConversation?.id} onSelect={setSelectedConversation} isLoading={isLoadingConversations} error={conversationError} /></div>
       </aside>
       <main className="hidden min-w-0 flex-1 flex-col bg-[#eef4f2] sm:flex">
         {selectedConversation ? <>
@@ -132,6 +134,7 @@ function ChatPage() {
           <MessageComposer onSend={handleSend} disabled={socketStatus !== 'connected'} />
         </> : <div className="m-auto px-8 text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#d9f0eb] text-2xl text-[#0f766e]" aria-hidden="true">✦</div><h2 className="mt-5 text-2xl font-semibold">Choose a conversation</h2><p className="mt-2 max-w-sm text-sm leading-6 text-[#60736e]">Select a conversation from the sidebar or start one with a user ID.</p></div>}
       </main>
+      {isNewChatOpen && <UserSearch currentUserId={user?.id} onSelect={handleUserSelect} onClose={() => setIsNewChatOpen(false)} />}
     </section>
   )
 }

@@ -18,6 +18,17 @@ def test_dockerfile_uses_single_production_uvicorn_worker():
     assert "pip install --no-cache-dir -r requirements.txt" in dockerfile
 
 
+def test_dockerfile_healthcheck_uses_valid_cmd_syntax():
+    dockerfile = DOCKERFILE.read_text()
+
+    # HEALTHCHECK must use CMD format (not CMD-SHELL which is invalid)
+    assert "HEALTHCHECK" in dockerfile
+    assert "CMD-SHELL" not in dockerfile
+    assert 'CMD ["python"' in dockerfile
+    assert "/health" in dockerfile
+    assert "timeout=10" in dockerfile
+
+
 def test_dockerfile_healthcheck_uses_liveness_endpoint():
     dockerfile = DOCKERFILE.read_text()
 

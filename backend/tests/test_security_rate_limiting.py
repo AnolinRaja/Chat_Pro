@@ -100,13 +100,16 @@ def test_login_and_registration_have_isolated_rate_limit_buckets():
 
     assert registration.status_code == 201
     assert login.status_code == 200
+    assert login.json()["purpose"] == "registration"
+    assert "access_token" not in login.json()
 
 
-def test_successful_login_behavior_remains_unchanged():
+def test_successful_login_requires_otp_before_issuing_token():
     client.post(
         "/auth/register",
         json={"name": "Successful Login", "email": "successful-login@example.com", "password": "Password123"},
     )
+    client.post("/auth/register/verify", json={"email": "successful-login@example.com", "otp": "123456"})
 
     response = client.post(
         "/auth/login",
@@ -114,4 +117,5 @@ def test_successful_login_behavior_remains_unchanged():
     )
 
     assert response.status_code == 200
-    assert response.json()["token_type"] == "bearer"
+    assert response.json()["requires_otp"] is True
+    assert "access_token" not in response.json()

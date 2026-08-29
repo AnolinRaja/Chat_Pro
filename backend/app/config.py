@@ -85,6 +85,17 @@ class Settings:
     WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS: int = _get_positive_int(
         "WEBSOCKET_MESSAGE_RATE_WINDOW_SECONDS", "60"
     )
+    OTP_EXPIRY_MINUTES: int = _get_positive_int("OTP_EXPIRY_MINUTES", "5")
+    OTP_MAX_ATTEMPTS: int = _get_positive_int("OTP_MAX_ATTEMPTS", "5")
+    OTP_RESEND_COOLDOWN_SECONDS: int = _get_positive_int("OTP_RESEND_COOLDOWN_SECONDS", "60")
+    OTP_MAX_REQUESTS_PER_HOUR: int = _get_positive_int("OTP_MAX_REQUESTS_PER_HOUR", "5")
+    OTP_CHALLENGE_EXPIRE_MINUTES: int = _get_positive_int("OTP_CHALLENGE_EXPIRE_MINUTES", "5")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "").strip()
+    SMTP_PORT: int = _get_positive_int("SMTP_PORT", "587")
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "").strip()
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "ChatPRO")
 
 
 settings = Settings()

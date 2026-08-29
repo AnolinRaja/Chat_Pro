@@ -46,6 +46,10 @@ def test_expected_index_specifications_are_centralized():
         "messages_conversation_id_idx",
         "messages_conversation_created_idx",
         "messages_conversation_created_id_idx",
+        "otp_codes_identifier_purpose_created_idx",
+        "otp_codes_expires_ttl_idx",
+        "auth_challenges_jti_unique_idx",
+        "auth_challenges_expires_ttl_idx",
     }
 
 

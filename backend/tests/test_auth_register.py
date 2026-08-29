@@ -43,11 +43,14 @@ def test_register_user_success():
     assert "password_hash" not in data
     assert "id" in data
     assert "created_at" in data
+    assert data["email_verified"] is False
+    assert data["requires_otp"] is True
 
     saved_user = db.get_db()["users"].find_one({"email": "anolin@example.com"})
     assert saved_user is not None
     assert saved_user["password_hash"] != "StrongPassword123"
     assert "password" not in saved_user
+    assert saved_user["email_verified"] is False
 
 
 def test_register_missing_name():
@@ -100,6 +103,8 @@ def test_register_duplicate_email_rejected():
         "password": "StrongPassword123",
     })
     assert first.status_code == 201
+    verified = client.post("/auth/register/verify", json={"email": "duplicate@example.com", "otp": "123456"})
+    assert verified.status_code == 200
 
     second = register_user({
         "name": "Second User",

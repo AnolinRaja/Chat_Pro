@@ -6,7 +6,7 @@ function getErrorMessage(error, fallback) {
   if (!error.response) return 'Unable to connect to the backend. Check the connection and try again.'
   if (error.response.status === 401) return 'Your session has expired. Please sign in again.'
   if (error.response.status === 409) return 'An account with that email already exists.'
-  if (error.response.status === 429) return 'Too many attempts. Please wait a moment and try again.'
+  if (error.response.status === 429) return 'Too many verification requests. Please wait and try again.'
   const detail = error.response.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((item) => item.msg).join(' ')
@@ -31,11 +31,22 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials)
-      localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
-      await refreshUser()
+      return response.data
     } catch (error) {
       clearSession()
       throw new Error(getErrorMessage(error, 'Unable to sign in. Please try again.'), { cause: error })
+    }
+  }
+
+  const verifyLogin = async (email, otp) => {
+    try {
+      const response = await api.post('/auth/login/verify', { email, otp })
+      localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
+      await refreshUser()
+      return response.data
+    } catch (error) {
+      clearSession()
+      throw new Error(getErrorMessage(error, 'Unable to verify your sign in. Please try again.'), { cause: error })
     }
   }
 
@@ -65,7 +76,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <authContextValue.Provider value={{ user, isLoading, login, register, logout, refreshUser }}>
+    <authContextValue.Provider value={{ user, isLoading, login, verifyLogin, register, logout, refreshUser }}>
       {children}
     </authContextValue.Provider>
   )

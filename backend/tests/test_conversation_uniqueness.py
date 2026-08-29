@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 from bson import ObjectId
@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pymongo.errors import DuplicateKeyError
 
 from app.db import db
+from app.config import settings
 from app.main import app
 from app.services.conversation_service import ConversationService
 
@@ -31,11 +32,12 @@ def cleanup_test_data():
 
 def register_and_login(user):
     client.post("/auth/register", json=user)
+    client.post("/auth/register/verify", json={"email": user["email"], "otp": "123456"})
     response = client.post(
         "/auth/login",
         json={"email": user["email"], "password": user["password"]},
     )
-    return response.json()["access_token"]
+    return client.post("/auth/login/verify", json={"email": user["email"], "otp": "123456"}).json()["access_token"]
 
 
 def test_canonical_participant_key_is_deterministic():
@@ -192,10 +194,15 @@ def test_conversation_and_messages_are_available_after_fresh_login():
     )
     assert sent.status_code == 201
 
-    fresh_token = client.post(
-        "/auth/login",
-        json={"email": TEST_USERS[0]["email"], "password": TEST_USERS[0]["password"]},
-    ).json()["access_token"]
+    with patch.object(settings, "OTP_RESEND_COOLDOWN_SECONDS", 0):
+        client.post(
+            "/auth/login",
+            json={"email": TEST_USERS[0]["email"], "password": TEST_USERS[0]["password"]},
+        )
+        fresh_token = client.post(
+            "/auth/login/verify",
+            json={"email": TEST_USERS[0]["email"], "otp": "123456"},
+        ).json()["access_token"]
     conversations = client.get(
         "/conversations",
         headers={"Authorization": f"Bearer {fresh_token}"},

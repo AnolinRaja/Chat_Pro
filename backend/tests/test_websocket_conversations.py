@@ -36,8 +36,9 @@ def cleanup_test_data():
 
 def register_and_login(user_data):
     client.post("/auth/register", json=user_data)
+    client.post("/auth/register/verify", json={"email": user_data["email"], "otp": "123456"})
     response = client.post("/auth/login", json={"email": user_data["email"], "password": user_data["password"]})
-    return response.json()["access_token"]
+    return client.post("/auth/login/verify", json={"email": user_data["email"], "otp": "123456"}).json()["access_token"]
 
 
 def test_authenticated_participant_can_establish_websocket_connection():

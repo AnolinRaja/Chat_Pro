@@ -24,10 +24,20 @@ def register_user(payload):
     return client.post("/auth/register", json=payload)
 
 
+def verify_registration(email):
+    return client.post("/auth/register/verify", json={"email": email, "otp": "123456"})
+
+
+def login_and_verify(email=TEST_EMAIL, password=TEST_PASSWORD):
+    challenge = client.post("/auth/login", json={"email": email, "password": password})
+    return client.post("/auth/login/verify", json={"email": email, "otp": "123456"}), challenge
+
+
 def test_successful_login_returns_token():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
+    verify_registration(TEST_EMAIL)
 
-    response = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    response, challenge = login_and_verify()
 
     assert response.status_code == 200
     body = response.json()
@@ -35,11 +45,14 @@ def test_successful_login_returns_token():
     assert body["token_type"] == "bearer"
     assert "password" not in body
     assert "password_hash" not in body
+    assert challenge.json()["requires_otp"] is True
+    assert "access_token" not in challenge.json()
 
 
 def test_login_token_type_is_bearer():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
-    response = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    verify_registration(TEST_EMAIL)
+    response, _ = login_and_verify()
 
     assert response.status_code == 200
     assert response.json()["token_type"] == "bearer"
@@ -47,7 +60,8 @@ def test_login_token_type_is_bearer():
 
 def test_login_token_can_be_decoded():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
-    token = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}).json()["access_token"]
+    verify_registration(TEST_EMAIL)
+    token = login_and_verify()[0].json()["access_token"]
 
     payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     assert "sub" in payload
@@ -56,8 +70,9 @@ def test_login_token_can_be_decoded():
 
 def test_login_token_sub_matches_user_id():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
+    verify_registration(TEST_EMAIL)
     user = db.get_db()["users"].find_one({"email": TEST_EMAIL})
-    token = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}).json()["access_token"]
+    token = login_and_verify()[0].json()["access_token"]
 
     payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     assert payload["sub"] == str(user["_id"])
@@ -81,8 +96,9 @@ def test_nonexistent_email_returns_401():
 
 def test_login_email_normalization():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
+    verify_registration(TEST_EMAIL)
 
-    response = client.post("/auth/login", json={"email": "TEST@EXAMPLE.COM", "password": TEST_PASSWORD})
+    response, _ = login_and_verify("TEST@EXAMPLE.COM")
 
     assert response.status_code == 200
 
@@ -143,7 +159,8 @@ def test_invalid_authorization_scheme_is_rejected():
 
 def test_login_response_does_not_expose_passwords():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
-    response = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    verify_registration(TEST_EMAIL)
+    response, _ = login_and_verify()
 
     payload = response.json()
     assert "password" not in payload
@@ -152,7 +169,8 @@ def test_login_response_does_not_expose_passwords():
 
 def test_auth_me_returns_current_user_without_sensitive_data():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
-    token = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD}).json()["access_token"]
+    verify_registration(TEST_EMAIL)
+    token = login_and_verify()[0].json()["access_token"]
 
     response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 

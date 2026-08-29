@@ -55,6 +55,30 @@ class Database:
             ],
             "options": {},
         },
+        {
+            "collection": "otp_codes",
+            "name": "otp_codes_identifier_purpose_created_idx",
+            "keys": [("identifier", ASCENDING), ("purpose", ASCENDING), ("created_at", ASCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "otp_codes",
+            "name": "otp_codes_expires_ttl_idx",
+            "keys": [("expires_at", ASCENDING)],
+            "options": {"expireAfterSeconds": 0},
+        },
+        {
+            "collection": "auth_challenges",
+            "name": "auth_challenges_jti_unique_idx",
+            "keys": [("jti", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "auth_challenges",
+            "name": "auth_challenges_expires_ttl_idx",
+            "keys": [("expires_at", ASCENDING)],
+            "options": {"expireAfterSeconds": 0},
+        },
     )
 
     @classmethod
@@ -117,7 +141,7 @@ class Database:
                     index["name"]: index
                     for index in database[collection_name].list_indexes()
                 }
-            except PyMongoError:
+            except (PyMongoError, KeyError):
                 logger.error(
                     "Failed to verify MongoDB indexes collection=%s",
                     collection_name,

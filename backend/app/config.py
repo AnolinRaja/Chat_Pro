@@ -70,6 +70,10 @@ class Settings:
     JWT_SECRET_KEY: str = _get_jwt_secret_key()
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = _get_positive_int("JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7")
+    SESSION_COOKIE_SECURE: bool = os.getenv("SESSION_COOKIE_SECURE", "false" if os.getenv("DEBUG", "false").lower() == "true" else "true").lower() == "true"
+    SESSION_COOKIE_SAMESITE: str = os.getenv("SESSION_COOKIE_SAMESITE", "lax" if os.getenv("DEBUG", "false").lower() == "true" else "none")
+    SESSION_COOKIE_HTTPONLY: bool = os.getenv("SESSION_COOKIE_HTTPONLY", "true").lower() == "true"
     WEBSOCKET_IDLE_THRESHOLD_SECONDS: int = _get_websocket_idle_threshold_seconds()
     AUTH_RATE_LIMIT_REQUESTS: int = _get_positive_int("AUTH_RATE_LIMIT_REQUESTS", "10")
     AUTH_RATE_LIMIT_WINDOW_SECONDS: int = _get_positive_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", "60")

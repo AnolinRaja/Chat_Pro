@@ -79,6 +79,24 @@ class Database:
             "keys": [("expires_at", ASCENDING)],
             "options": {"expireAfterSeconds": 0},
         },
+        {
+            "collection": "auth_sessions",
+            "name": "auth_sessions_user_id_idx",
+            "keys": [("user_id", ASCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "auth_sessions",
+            "name": "auth_sessions_token_hash_unique_idx",
+            "keys": [("token_hash", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "auth_sessions",
+            "name": "auth_sessions_expires_ttl_idx",
+            "keys": [("expires_at", ASCENDING)],
+            "options": {"expireAfterSeconds": 0},
+        },
     )
 
     @classmethod

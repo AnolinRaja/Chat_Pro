@@ -50,6 +50,9 @@ def test_expected_index_specifications_are_centralized():
         "otp_codes_expires_ttl_idx",
         "auth_challenges_jti_unique_idx",
         "auth_challenges_expires_ttl_idx",
+        "auth_sessions_user_id_idx",
+        "auth_sessions_token_hash_unique_idx",
+        "auth_sessions_expires_ttl_idx",
     }
 
 

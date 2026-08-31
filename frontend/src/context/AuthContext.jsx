@@ -59,12 +59,49 @@ export function AuthProvider({ children }) {
     }
   }
 
-  const logout = () => clearSession()
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch (error) {
+      console.error('Failed to log out on backend:', error)
+    } finally {
+      clearSession()
+    }
+  }
+
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      clearSession()
+    }
+    window.addEventListener('auth:logout', handleAuthLogout)
+    return () => window.removeEventListener('auth:logout', handleAuthLogout)
+  }, [])
 
   useEffect(() => {
     const restoreSession = async () => {
-      if (localStorage.getItem(TOKEN_STORAGE_KEY)) {
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+      if (token) {
         try {
+          await refreshUser()
+        } catch (error) {
+          if (error.response && error.response.status === 401) {
+            try {
+              const refreshRes = await api.post('/auth/refresh')
+              const newAccessToken = refreshRes.data.access_token
+              localStorage.setItem(TOKEN_STORAGE_KEY, newAccessToken)
+              await refreshUser()
+            } catch {
+              clearSession()
+            }
+          } else {
+            clearSession()
+          }
+        }
+      } else {
+        try {
+          const refreshRes = await api.post('/auth/refresh')
+          const newAccessToken = refreshRes.data.access_token
+          localStorage.setItem(TOKEN_STORAGE_KEY, newAccessToken)
           await refreshUser()
         } catch {
           clearSession()

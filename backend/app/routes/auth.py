@@ -1,9 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Cookie, status
 
 from app.config import settings
 from app.dependencies import get_current_user
+from app.services.session_service import SessionService
 from app.schemas.auth import (
     OtpRequiredResponse,
     OtpVerificationRequest,
@@ -79,8 +80,92 @@ def resend_registration(payload: EmailRequest):
 
 
 @router.post("/login/verify", response_model=TokenResponse)
-def verify_login(payload: OtpVerificationRequest):
-    return AuthService.verify_login(payload.email, payload.otp)
+def verify_login(payload: OtpVerificationRequest, response: Response):
+    result = AuthService.verify_login(payload.email, payload.otp)
+
+    user = AuthService.get_user_by_email(payload.email)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unable to complete sign in.")
+
+    session_id, raw_token = SessionService.create_session(str(user["_id"]))
+
+    cookie_value = f"{session_id}.{raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+    )
+    return result
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_session(response: Response, refresh_token: str | None = Cookie(None)):
+    if not refresh_token or "." not in refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session."
+        )
+
+    try:
+        session_id, raw_token = refresh_token.split(".", 1)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session."
+        )
+
+    try:
+        new_session_id, new_raw_token, user_id = SessionService.rotate_refresh_token(session_id, raw_token)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error during session refresh: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session."
+        )
+
+    cookie_value = f"{new_session_id}.{new_raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+    )
+
+    from app.services.jwt_service import JWTService
+    access_token = JWTService.create_access_token(user_id)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
+
+@router.post("/logout")
+def logout_user(response: Response, refresh_token: str | None = Cookie(None)):
+    response.delete_cookie(
+        key="refresh_token",
+        path="/",
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+    )
+
+    if refresh_token and "." in refresh_token:
+        try:
+            session_id, _ = refresh_token.split(".", 1)
+            SessionService.revoke_session(session_id)
+        except Exception:
+            pass
+
+    return {"message": "Logged out successfully."}
 
 
 @router.post("/login/resend")

@@ -97,6 +97,36 @@ class Database:
             "keys": [("expires_at", ASCENDING)],
             "options": {"expireAfterSeconds": 0},
         },
+        {
+            "collection": "organizations",
+            "name": "organizations_org_id_unique_idx",
+            "keys": [("org_id", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "organization_memberships",
+            "name": "memberships_user_org_unique_idx",
+            "keys": [("user_id", ASCENDING), ("organization_id", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "organization_memberships",
+            "name": "memberships_org_id_idx",
+            "keys": [("organization_id", ASCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "organization_registration_requests",
+            "name": "requests_user_org_unique_idx",
+            "keys": [("user_id", ASCENDING), ("organization_id", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "organization_registration_requests",
+            "name": "requests_org_status_idx",
+            "keys": [("organization_id", ASCENDING), ("status", ASCENDING)],
+            "options": {},
+        },
     )
 
     @classmethod

@@ -53,6 +53,11 @@ def test_expected_index_specifications_are_centralized():
         "auth_sessions_user_id_idx",
         "auth_sessions_token_hash_unique_idx",
         "auth_sessions_expires_ttl_idx",
+        "organizations_org_id_unique_idx",
+        "memberships_user_org_unique_idx",
+        "memberships_org_id_idx",
+        "requests_user_org_unique_idx",
+        "requests_org_status_idx",
     }
 
 

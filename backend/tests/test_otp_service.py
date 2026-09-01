@@ -249,3 +249,79 @@ def test_email_service_handles_oserror_network_failure(monkeypatch, caplog):
     assert "OSError" in caplog.text
     assert "Network is unreachable" in caplog.text
     assert "123456" not in caplog.text
+
+
+def test_email_service_uses_resend_api_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", "resend")
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "re_test_key_123")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr(settings, "SMTP_FROM_NAME", "ChatPRO")
+
+    mock_response = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_response.is_error = False
+    mock_response.status_code = 200
+
+    with patch("httpx.Client.post", return_value=mock_response) as mock_post:
+        EmailService.send_otp(IDENTIFIER, "123456", 5)
+
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    assert args[0] == "https://api.resend.com/emails"
+    assert "Bearer re_test_key_123" in kwargs["headers"]["Authorization"]
+    assert kwargs["json"]["to"] == [IDENTIFIER]
+    assert "123456" in kwargs["json"]["text"]
+
+
+def test_email_service_handles_resend_api_error(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", "resend")
+    monkeypatch.setattr(settings, "RESEND_API_KEY", "re_test_key_123")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+
+    mock_response = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_response.is_error = True
+    mock_response.status_code = 403
+    mock_response.text = "Forbidden domain"
+
+    with patch("httpx.Client.post", return_value=mock_response), caplog.at_level("ERROR"):
+        with pytest.raises(EmailDeliveryError):
+            EmailService.send_otp(IDENTIFIER, "123456", 5)
+
+    assert "Resend API error status_code=403" in caplog.text
+    assert "123456" not in caplog.text
+
+
+def test_email_service_uses_sendgrid_api_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", "sendgrid")
+    monkeypatch.setattr(settings, "SENDGRID_API_KEY", "SG.test_key_123")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr(settings, "SMTP_FROM_NAME", "ChatPRO")
+
+    mock_response = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_response.status_code = 202
+
+    with patch("httpx.Client.post", return_value=mock_response) as mock_post:
+        EmailService.send_otp(IDENTIFIER, "123456", 5)
+
+    mock_post.assert_called_once()
+    args, kwargs = mock_post.call_args
+    assert args[0] == "https://api.sendgrid.com/v3/mail/send"
+    assert "Bearer SG.test_key_123" in kwargs["headers"]["Authorization"]
+    assert kwargs["json"]["personalizations"][0]["to"][0]["email"] == IDENTIFIER
+    assert "123456" in kwargs["json"]["content"][0]["value"]
+
+
+def test_email_service_handles_sendgrid_api_error(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "EMAIL_PROVIDER", "sendgrid")
+    monkeypatch.setattr(settings, "SENDGRID_API_KEY", "SG.test_key_123")
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+
+    mock_response = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_response.status_code = 401
+    mock_response.text = "Unauthorized"
+
+    with patch("httpx.Client.post", return_value=mock_response), caplog.at_level("ERROR"):
+        with pytest.raises(EmailDeliveryError):
+            EmailService.send_otp(IDENTIFIER, "123456", 5)
+
+    assert "SendGrid API error status_code=401" in caplog.text
+    assert "123456" not in caplog.text

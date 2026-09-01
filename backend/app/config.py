@@ -103,6 +103,9 @@ class Settings:
     SMTP_TIMEOUT_SECONDS: int = _get_positive_int("SMTP_TIMEOUT_SECONDS", "15")
     SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "true" if os.getenv("SMTP_PORT", "587") == "465" else "false").lower() == "true"
     SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "false" if os.getenv("SMTP_PORT", "587") == "465" else "true").lower() == "true"
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower()
+    RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "").strip()
+    SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "").strip()
 
 
 settings = Settings()

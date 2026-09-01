@@ -6,6 +6,8 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -32,11 +34,21 @@ class EmailService:
             msg = str(value) if value else str(error)
         else:
             msg = f"{type(error).__name__}: {error}"
-        sanitized = re.sub(r"(?i)(password|passwd|secret|token|otp|auth)\s*[=:]\s*[^\s,;]+", r"\1=[REDACTED]", msg)
+        sanitized = re.sub(r"(?i)(password|passwd|secret|token|otp|auth|bearer)\s*[=:]\s*[^\s,;]+", r"\1=[REDACTED]", msg)
         return sanitized[:300]
 
     @staticmethod
     def send_otp(recipient: str, otp: str, expires_in_minutes: int) -> None:
+        provider = settings.EMAIL_PROVIDER.lower()
+        if provider == "resend" or (settings.RESEND_API_KEY and provider != "smtp"):
+            EmailService._send_resend_otp(recipient, otp, expires_in_minutes)
+        elif provider == "sendgrid" or (settings.SENDGRID_API_KEY and provider != "smtp"):
+            EmailService._send_sendgrid_otp(recipient, otp, expires_in_minutes)
+        else:
+            EmailService._send_smtp_otp(recipient, otp, expires_in_minutes)
+
+    @staticmethod
+    def _send_smtp_otp(recipient: str, otp: str, expires_in_minutes: int) -> None:
         if not settings.SMTP_HOST or not settings.SMTP_FROM_EMAIL:
             raise EmailDeliveryError("Email delivery is not configured.")
 
@@ -103,6 +115,124 @@ class EmailService:
                 stage,
                 type(error).__name__,
                 getattr(error, "smtp_code", None),
+                safe_msg,
+                masked_recipient,
+            )
+            raise EmailDeliveryError("Unable to deliver email.") from error
+
+    @staticmethod
+    def _send_resend_otp(recipient: str, otp: str, expires_in_minutes: int) -> None:
+        if not settings.RESEND_API_KEY or not settings.SMTP_FROM_EMAIL:
+            raise EmailDeliveryError("Resend email delivery is not configured.")
+
+        masked_recipient = EmailService._masked_email(recipient)
+        from_header = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>" if settings.SMTP_FROM_NAME else settings.SMTP_FROM_EMAIL
+        payload = {
+            "from": from_header,
+            "to": [recipient],
+            "subject": "Your ChatPRO verification code",
+            "text": (
+                "Hello,\n\n"
+                "Your ChatPRO verification code is:\n\n"
+                f"{otp}\n\n"
+                f"This code expires in {expires_in_minutes} minutes.\n\n"
+                "If you did not request this code, you can safely ignore this email.\n"
+            ),
+        }
+
+        logger.info(
+            "Resend HTTPS API delivery started sender=%s recipient=%s",
+            EmailService._masked_email(settings.SMTP_FROM_EMAIL),
+            masked_recipient,
+        )
+
+        try:
+            with httpx.Client(timeout=settings.SMTP_TIMEOUT_SECONDS) as client:
+                res = client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                if res.is_error:
+                    logger.error(
+                        "Resend API error status_code=%s response=%s recipient=%s",
+                        res.status_code,
+                        res.text[:200],
+                        masked_recipient,
+                    )
+                    raise EmailDeliveryError("Unable to deliver email via Resend API.")
+                logger.info("Resend HTTPS API delivery status=succeeded recipient=%s", masked_recipient)
+        except EmailDeliveryError:
+            raise
+        except Exception as error:
+            safe_msg = EmailService._safe_error_message(error)
+            logger.error(
+                "Resend HTTPS API delivery failed exception=%s message=%s recipient=%s",
+                type(error).__name__,
+                safe_msg,
+                masked_recipient,
+            )
+            raise EmailDeliveryError("Unable to deliver email.") from error
+
+    @staticmethod
+    def _send_sendgrid_otp(recipient: str, otp: str, expires_in_minutes: int) -> None:
+        if not settings.SENDGRID_API_KEY or not settings.SMTP_FROM_EMAIL:
+            raise EmailDeliveryError("SendGrid email delivery is not configured.")
+
+        masked_recipient = EmailService._masked_email(recipient)
+        payload = {
+            "personalizations": [{"to": [{"email": recipient}]}],
+            "from": {"email": settings.SMTP_FROM_EMAIL, "name": settings.SMTP_FROM_NAME},
+            "subject": "Your ChatPRO verification code",
+            "content": [
+                {
+                    "type": "text/plain",
+                    "value": (
+                        "Hello,\n\n"
+                        "Your ChatPRO verification code is:\n\n"
+                        f"{otp}\n\n"
+                        f"This code expires in {expires_in_minutes} minutes.\n\n"
+                        "If you did not request this code, you can safely ignore this email.\n"
+                    ),
+                }
+            ],
+        }
+
+        logger.info(
+            "SendGrid HTTPS API delivery started sender=%s recipient=%s",
+            EmailService._masked_email(settings.SMTP_FROM_EMAIL),
+            masked_recipient,
+        )
+
+        try:
+            with httpx.Client(timeout=settings.SMTP_TIMEOUT_SECONDS) as client:
+                res = client.post(
+                    "https://api.sendgrid.com/v3/mail/send",
+                    headers={
+                        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                )
+                if res.status_code not in (200, 202):
+                    logger.error(
+                        "SendGrid API error status_code=%s response=%s recipient=%s",
+                        res.status_code,
+                        res.text[:200],
+                        masked_recipient,
+                    )
+                    raise EmailDeliveryError("Unable to deliver email via SendGrid API.")
+                logger.info("SendGrid HTTPS API delivery status=succeeded recipient=%s", masked_recipient)
+        except EmailDeliveryError:
+            raise
+        except Exception as error:
+            safe_msg = EmailService._safe_error_message(error)
+            logger.error(
+                "SendGrid HTTPS API delivery failed exception=%s message=%s recipient=%s",
+                type(error).__name__,
                 safe_msg,
                 masked_recipient,
             )

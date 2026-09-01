@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pymongo import ASCENDING, MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.errors import PyMongoError
 
 from app.config import settings
@@ -144,6 +144,30 @@ class Database:
             "name": "admin_sessions_expires_ttl_idx",
             "keys": [("expires_at", ASCENDING)],
             "options": {"expireAfterSeconds": 0},
+        },
+        {
+            "collection": "audit_logs",
+            "name": "audit_logs_created_at_idx",
+            "keys": [("created_at", DESCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "audit_logs",
+            "name": "audit_logs_org_created_at_idx",
+            "keys": [("organization_id", ASCENDING), ("created_at", DESCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "audit_logs",
+            "name": "audit_logs_actor_created_at_idx",
+            "keys": [("actor_id", ASCENDING), ("created_at", DESCENDING)],
+            "options": {},
+        },
+        {
+            "collection": "audit_logs",
+            "name": "audit_logs_event_type_created_at_idx",
+            "keys": [("event_type", ASCENDING), ("created_at", DESCENDING)],
+            "options": {},
         },
     )
 

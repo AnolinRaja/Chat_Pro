@@ -61,6 +61,10 @@ def test_expected_index_specifications_are_centralized():
         "admin_users_email_unique_idx",
         "admin_sessions_token_hash_unique_idx",
         "admin_sessions_expires_ttl_idx",
+        "audit_logs_created_at_idx",
+        "audit_logs_org_created_at_idx",
+        "audit_logs_actor_created_at_idx",
+        "audit_logs_event_type_created_at_idx",
     }
 
 
@@ -388,3 +392,22 @@ def test_misconfiguration_logging_contains_only_safe_identifiers(caplog):
     assert "collection=messages" in caplog.text
     assert "index=messages_conversation_created_id_idx" in caplog.text
     assert "must not be logged" not in caplog.text
+
+
+def test_audit_logs_indexes_have_expected_keys_and_properties():
+    Database.ensure_indexes()
+    indexes = {item["name"]: item for item in db.get_db()["audit_logs"].list_indexes()}
+
+    assert indexes["audit_logs_created_at_idx"]["key"] == {"created_at": -1}
+    assert indexes["audit_logs_org_created_at_idx"]["key"] == {"organization_id": 1, "created_at": -1}
+    assert indexes["audit_logs_actor_created_at_idx"]["key"] == {"actor_id": 1, "created_at": -1}
+    assert indexes["audit_logs_event_type_created_at_idx"]["key"] == {"event_type": 1, "created_at": -1}
+
+
+def test_audit_indexes_are_centralized_with_exact_key_order():
+    specs = {spec["name"]: spec for spec in Database.EXPECTED_INDEXES if spec["collection"] == "audit_logs"}
+
+    assert specs["audit_logs_created_at_idx"]["keys"] == [("created_at", -1)]
+    assert specs["audit_logs_org_created_at_idx"]["keys"] == [("organization_id", 1), ("created_at", -1)]
+    assert specs["audit_logs_actor_created_at_idx"]["keys"] == [("actor_id", 1), ("created_at", -1)]
+    assert specs["audit_logs_event_type_created_at_idx"]["keys"] == [("event_type", 1), ("created_at", -1)]

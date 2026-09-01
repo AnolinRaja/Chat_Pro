@@ -6,8 +6,10 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from app.config import settings
 from app.dependencies import get_current_admin
 from app.schemas.admin import AdminLogin, AdminResponse, AdminTokenResponse
+from app.schemas.audit import AuditAction, AuditActorType, AuditEventType, AuditStatus
 from app.services.admin_auth_service import AdminAuthService
 from app.services.admin_session_service import AdminSessionService
+from app.services.audit_service import AuditService
 from app.services.jwt_service import JWTService
 from app.services.rate_limiter import auth_rate_limiter
 
@@ -39,8 +41,32 @@ def _enforce_admin_auth_rate_limit(request: Request, endpoint: str) -> None:
 @router.post("/login", response_model=AdminTokenResponse)
 def login_admin(request: Request, payload: AdminLogin, response: Response):
     _enforce_admin_auth_rate_limit(request, "admin_login")
+    ip_address, user_agent = AuditService.extract_request_context(request)
 
-    admin = AdminAuthService.authenticate_admin(payload.email, payload.password)
+    try:
+        admin = AdminAuthService.authenticate_admin(payload.email, payload.password)
+    except HTTPException:
+        AuditService.log_event(
+            event_type=AuditEventType.ADMIN_LOGIN_FAILED,
+            actor_type=AuditActorType.ADMIN,
+            action=AuditAction.LOGIN,
+            status=AuditStatus.FAILURE,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        raise
+
+    AuditService.log_event(
+        event_type=AuditEventType.ADMIN_LOGIN,
+        actor_type=AuditActorType.ADMIN,
+        action=AuditAction.LOGIN,
+        status=AuditStatus.SUCCESS,
+        actor_id=admin["id"],
+        actor_role=admin["role"],
+        organization_id=admin.get("organization_id"),
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
 
     session_id, raw_token = AdminSessionService.create_session(admin["id"])
 
@@ -126,7 +152,7 @@ def refresh_admin_session(response: Response, admin_refresh_token: str | None = 
 
 
 @router.post("/logout")
-def logout_admin(response: Response, admin_refresh_token: str | None = Cookie(None)):
+def logout_admin(request: Request, response: Response, admin_refresh_token: str | None = Cookie(None)):
     response.delete_cookie(
         key="admin_refresh_token",
         path="/admin",
@@ -140,6 +166,16 @@ def logout_admin(response: Response, admin_refresh_token: str | None = Cookie(No
             AdminSessionService.revoke_session(session_id)
         except Exception:
             pass
+
+    ip_address, user_agent = AuditService.extract_request_context(request)
+    AuditService.log_event(
+        event_type=AuditEventType.ADMIN_LOGOUT,
+        actor_type=AuditActorType.ADMIN,
+        action=AuditAction.LOGOUT,
+        status=AuditStatus.SUCCESS,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
 
     return {"message": "Admin logged out successfully."}
 

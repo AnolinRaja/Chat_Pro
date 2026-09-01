@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import db
+from app.routes.admin_audit import router as admin_audit_router
 from app.routes.admin_auth import router as admin_auth_router
 from app.routes.admin_organizations import router as admin_organizations_router
 from app.routes.admin_requests import router as admin_requests_router
@@ -80,6 +81,7 @@ async def request_observability_middleware(request: Request, call_next):
     return response
 
 
+app.include_router(admin_audit_router)
 app.include_router(admin_auth_router)
 app.include_router(admin_organizations_router)
 app.include_router(admin_requests_router)

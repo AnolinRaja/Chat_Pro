@@ -3,10 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Literal
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.dependencies import assert_admin_organization_access, require_org_admin
+from app.schemas.audit import AuditAction, AuditActorType, AuditEventType, AuditStatus
 from app.schemas.organization import OrganizationRegistrationRequestResponse
+from app.services.audit_service import AuditService
 from app.services.organization_request_service import OrganizationRequestService
 
 router = APIRouter(prefix="/admin/requests", tags=["admin-requests"])
@@ -37,6 +39,7 @@ def list_admin_requests(
 
 @router.post("/{request_id}/approve", response_model=OrganizationRegistrationRequestResponse)
 def approve_request(
+    request: Request,
     request_id: str,
     current_admin: dict = Depends(require_org_admin),
 ):
@@ -62,11 +65,29 @@ def approve_request(
         new_status="APPROVED",
         reviewed_by=current_admin["id"],
     )
+
+    ip_address, user_agent = AuditService.extract_request_context(request)
+    AuditService.log_event(
+        event_type=AuditEventType.ORGANIZATION_JOIN_REQUEST_APPROVED,
+        actor_type=AuditActorType.ADMIN,
+        action=AuditAction.APPROVE,
+        status=AuditStatus.SUCCESS,
+        actor_id=current_admin["id"],
+        actor_role=current_admin.get("role"),
+        organization_id=req["organization_id"],
+        target_type="organization_registration_request",
+        target_id=request_id,
+        metadata={"user_id": updated["user_id"]},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
     return OrganizationRegistrationRequestResponse(**updated)
 
 
 @router.post("/{request_id}/reject", response_model=OrganizationRegistrationRequestResponse)
 def reject_request(
+    request: Request,
     request_id: str,
     current_admin: dict = Depends(require_org_admin),
 ):
@@ -92,4 +113,21 @@ def reject_request(
         new_status="REJECTED",
         reviewed_by=current_admin["id"],
     )
+
+    ip_address, user_agent = AuditService.extract_request_context(request)
+    AuditService.log_event(
+        event_type=AuditEventType.ORGANIZATION_JOIN_REQUEST_REJECTED,
+        actor_type=AuditActorType.ADMIN,
+        action=AuditAction.REJECT,
+        status=AuditStatus.SUCCESS,
+        actor_id=current_admin["id"],
+        actor_role=current_admin.get("role"),
+        organization_id=req["organization_id"],
+        target_type="organization_registration_request",
+        target_id=request_id,
+        metadata={"user_id": updated["user_id"]},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
     return OrganizationRegistrationRequestResponse(**updated)

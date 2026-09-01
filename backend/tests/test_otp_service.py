@@ -197,3 +197,55 @@ def test_email_service_preserves_safe_smtp_data_error_diagnostic(caplog):
     assert "SMTPDataError" in caplog.text
     assert "550" in caplog.text
     assert "123456" not in caplog.text
+
+
+def test_email_service_uses_smtp_ssl_for_port_465(monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 465)
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "user")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "secret")
+
+    mock_server = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_server.__enter__.return_value = mock_server
+
+    with patch("app.services.email_service.smtplib.SMTP_SSL", return_value=mock_server) as mock_ssl_class:
+        EmailService.send_otp(IDENTIFIER, "654321", 5)
+
+    mock_ssl_class.assert_called_once()
+    mock_server.login.assert_called_once_with("user", "secret")
+    mock_server.send_message.assert_called_once()
+
+
+def test_email_service_uses_starttls_for_port_587(monkeypatch):
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+    monkeypatch.setattr(settings, "SMTP_USERNAME", "user")
+    monkeypatch.setattr(settings, "SMTP_PASSWORD", "secret")
+
+    mock_server = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+    mock_server.__enter__.return_value = mock_server
+
+    with patch("app.services.email_service.smtplib.SMTP", return_value=mock_server) as mock_smtp_class:
+        EmailService.send_otp(IDENTIFIER, "654321", 5)
+
+    mock_smtp_class.assert_called_once()
+    mock_server.starttls.assert_called_once()
+    mock_server.login.assert_called_once_with("user", "secret")
+    mock_server.send_message.assert_called_once()
+
+
+def test_email_service_handles_oserror_network_failure(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(settings, "SMTP_PORT", 587)
+    monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@example.com")
+
+    with patch("app.services.email_service.smtplib.SMTP", side_effect=OSError("Network is unreachable")), caplog.at_level("ERROR"):
+        with pytest.raises(EmailDeliveryError):
+            EmailService.send_otp(IDENTIFIER, "123456", 5)
+
+    assert "SMTP OTP delivery failed stage=connection" in caplog.text
+    assert "OSError" in caplog.text
+    assert "Network is unreachable" in caplog.text
+    assert "123456" not in caplog.text

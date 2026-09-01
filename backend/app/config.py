@@ -100,6 +100,9 @@ class Settings:
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "").strip()
     SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "ChatPRO")
+    SMTP_TIMEOUT_SECONDS: int = _get_positive_int("SMTP_TIMEOUT_SECONDS", "15")
+    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "true" if os.getenv("SMTP_PORT", "587") == "465" else "false").lower() == "true"
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "false" if os.getenv("SMTP_PORT", "587") == "465" else "true").lower() == "true"
 
 
 settings = Settings()

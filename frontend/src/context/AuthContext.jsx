@@ -4,12 +4,12 @@ import authContextValue from './authContextValue.js'
 
 function getErrorMessage(error, fallback) {
   if (!error.response) return 'Unable to connect to the backend. Check the connection and try again.'
-  if (error.response.status === 401) return 'Your session has expired. Please sign in again.'
-  if (error.response.status === 409) return 'An account with that email already exists.'
-  if (error.response.status === 429) return 'Too many verification requests. Please wait and try again.'
   const detail = error.response.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((item) => item.msg).join(' ')
+  if (error.response.status === 401) return 'Invalid email or password.'
+  if (error.response.status === 409) return 'An account with that email already exists.'
+  if (error.response.status === 429) return 'Too many verification requests. Please wait and try again.'
   return fallback
 }
 

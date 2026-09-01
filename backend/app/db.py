@@ -127,6 +127,24 @@ class Database:
             "keys": [("organization_id", ASCENDING), ("status", ASCENDING)],
             "options": {},
         },
+        {
+            "collection": "admin_users",
+            "name": "admin_users_email_unique_idx",
+            "keys": [("email", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "admin_sessions",
+            "name": "admin_sessions_token_hash_unique_idx",
+            "keys": [("token_hash", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "admin_sessions",
+            "name": "admin_sessions_expires_ttl_idx",
+            "keys": [("expires_at", ASCENDING)],
+            "options": {"expireAfterSeconds": 0},
+        },
     )
 
     @classmethod

@@ -22,7 +22,7 @@ async def get_current_user_from_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
 
     user_id = payload.get("sub")
-    if not user_id:
+    if not user_id or payload.get("type") == "admin":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
 
     try:
@@ -47,3 +47,70 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
 
     return await get_current_user_from_token(credentials.credentials)
+
+
+async def get_current_admin(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> dict[str, Any]:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    token = credentials.credentials
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    try:
+        payload = JWTService.decode_access_token(token)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    if payload.get("type") != "admin":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    admin_id = payload.get("sub")
+    if not admin_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    try:
+        admin_oid = ObjectId(admin_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    try:
+        admin = db.get_db()["admin_users"].find_one({"_id": admin_oid})
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    if admin is None or not admin.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
+
+    return {
+        "id": str(admin["_id"]),
+        "name": admin["name"],
+        "email": admin["email"],
+        "role": admin["role"],
+        "organization_id": str(admin["organization_id"]) if admin.get("organization_id") else None,
+        "is_active": admin.get("is_active", True),
+    }
+
+
+def require_system_admin(
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+) -> dict[str, Any]:
+    if current_admin.get("role") != "system_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System administrator access required."
+        )
+    return current_admin
+
+
+def require_org_admin(
+    current_admin: dict[str, Any] = Depends(get_current_admin),
+) -> dict[str, Any]:
+    if current_admin.get("role") not in {"system_admin", "org_admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access required."
+        )
+    return current_admin

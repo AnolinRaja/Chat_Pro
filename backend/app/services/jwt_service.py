@@ -23,6 +23,24 @@ class JWTService:
         return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     @staticmethod
+    def create_admin_access_token(
+        admin_id: str,
+        role: str,
+        organization_id: str | None = None,
+    ) -> str:
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+        payload = {
+            "sub": admin_id,
+            "type": "admin",
+            "role": role,
+            "org_id": organization_id,
+            "iat": int(now.timestamp()),
+            "exp": int(expires_at.timestamp()),
+        }
+        return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    @staticmethod
     def decode_access_token(token: str) -> dict[str, Any]:
         return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 

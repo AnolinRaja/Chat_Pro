@@ -128,6 +128,70 @@ class OrganizationRequestService:
             return None
 
     @staticmethod
+    def get_request_by_id(request_id: str) -> dict[str, Any] | None:
+        try:
+            req_oid = ObjectId(request_id)
+        except Exception:
+            return None
+
+        try:
+            request = db.get_db()["organization_registration_requests"].find_one({"_id": req_oid})
+            if request:
+                return OrganizationRequestService._format_request(request)
+            return None
+        except PyMongoError as e:
+            logger.error("Failed to find request by id: %s", e)
+            return None
+
+    @staticmethod
+    def list_requests(
+        organization_id: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {}
+        if organization_id:
+            try:
+                query["organization_id"] = ObjectId(organization_id)
+            except Exception:
+                return []
+
+        if status and status != "ALL":
+            query["status"] = status
+
+        try:
+            requests = list(db.get_db()["organization_registration_requests"].find(query).sort("created_at", -1))
+            return [OrganizationRequestService._format_request(r) for r in requests]
+        except PyMongoError as e:
+            logger.error("Failed to list requests: %s", e)
+            return []
+
+    @staticmethod
+    def list_user_requests(user_id: str) -> list[dict[str, Any]]:
+        try:
+            u_oid = ObjectId(user_id)
+        except Exception:
+            return []
+
+        try:
+            requests = list(db.get_db()["organization_registration_requests"].find({"user_id": u_oid}).sort("created_at", -1))
+            result = []
+            for r in requests:
+                org = db.get_db()["organizations"].find_one({"_id": r["organization_id"]})
+                result.append({
+                    "id": str(r["_id"]),
+                    "organization_id": str(r["organization_id"]),
+                    "organization_name": org.get("name", "Unknown") if org else "Unknown",
+                    "org_id": org.get("org_id", "") if org else "",
+                    "status": r["status"],
+                    "created_at": r["created_at"],
+                    "updated_at": r["updated_at"],
+                })
+            return result
+        except PyMongoError as e:
+            logger.error("Failed to list user requests: %s", e)
+            return []
+
+    @staticmethod
     def update_request_status(request_id: str, new_status: str, reviewed_by: str | None = None) -> dict[str, Any]:
         if new_status not in {"PENDING", "APPROVED", "REJECTED"}:
             raise HTTPException(

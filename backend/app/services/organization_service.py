@@ -83,6 +83,23 @@ class OrganizationService:
             return None
 
     @staticmethod
+    def get_organization_by_id(id: str) -> dict[str, Any] | None:
+        from bson import ObjectId
+        try:
+            oid = ObjectId(id)
+        except Exception:
+            return None
+
+        try:
+            org = db.get_db()["organizations"].find_one({"_id": oid})
+            if org:
+                return OrganizationService._format_org(org)
+            return None
+        except PyMongoError as e:
+            logger.error("Failed to find organization by id: %s", e)
+            return None
+
+    @staticmethod
     def list_organizations() -> list[dict[str, Any]]:
         try:
             orgs = db.get_db()["organizations"].find().sort("name", 1)

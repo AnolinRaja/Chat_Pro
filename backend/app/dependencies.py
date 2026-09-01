@@ -114,3 +114,19 @@ def require_org_admin(
             detail="Administrator access required."
         )
     return current_admin
+
+
+def assert_admin_organization_access(
+    admin: dict[str, Any],
+    target_org_id: str | ObjectId,
+) -> None:
+    if admin.get("role") == "system_admin":
+        return
+
+    admin_org_id = str(admin.get("organization_id"))
+    target_str_id = str(target_org_id)
+    if admin_org_id != target_str_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied for this organization."
+        )

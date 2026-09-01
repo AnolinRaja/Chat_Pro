@@ -47,6 +47,17 @@ def create_organization(
         user_agent=user_agent,
     )
 
+    try:
+        from app.services.conversation_service import ConversationService
+        ConversationService.create_organization_conversation(
+            organization_id=org["id"],
+            name="general",
+            description="General discussion channel",
+            created_by=None,
+        )
+    except Exception as e:
+        logger.warning("Failed to auto-create default general channel for organization %s: %s", org["id"], e)
+
     return OrganizationResponse(**org)
 
 

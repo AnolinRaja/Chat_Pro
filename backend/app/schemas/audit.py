@@ -16,6 +16,8 @@ class AuditEventType(StrEnum):
     ORGANIZATION_JOIN_REQUEST_REJECTED = "organization_join_request_rejected"
     ORGANIZATION_JOIN_FAILED = "organization_join_failed"
     ORGANIZATION_ACCESS_DENIED = "organization_access_denied"
+    ORGANIZATION_CONVERSATION_CREATED = "organization_conversation_created"
+    ORGANIZATION_CONVERSATION_ACCESS_DENIED = "organization_conversation_access_denied"
 
 
 class AuditActorType(StrEnum):

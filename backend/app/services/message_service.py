@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from pymongo.errors import PyMongoError
 
 from app.db import db
+from app.services.conversation_service import ConversationService
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +24,6 @@ class MessageService:
 
     @staticmethod
     def send_message(conversation_id: str, user_id: str, content: str) -> dict[str, Any]:
-        try:
-            conv_oid = ObjectId(conversation_id)
-            user_oid = ObjectId(user_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid ID format.")
-
         content = content.strip()
         if not content:
             raise HTTPException(status_code=400, detail="Message content cannot be empty.")
@@ -36,14 +31,9 @@ class MessageService:
         if len(content) > 5000:
             raise HTTPException(status_code=400, detail="Message content exceeds maximum length.")
 
-        conversations_collection = db.get_db()["conversations"]
-        conversation = conversations_collection.find_one({"_id": conv_oid})
-
-        if conversation is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-
-        if user_oid not in conversation.get("participants", []):
-            raise HTTPException(status_code=403, detail="Access denied.")
+        conversation = ConversationService.get_authorized_conversation(conversation_id, user_id)
+        conv_oid = conversation["_id"]
+        user_oid = ObjectId(user_id)
 
         now = datetime.now(timezone.utc)
         msg_doc = {
@@ -54,6 +44,7 @@ class MessageService:
         }
 
         messages_collection = db.get_db()["messages"]
+        conversations_collection = db.get_db()["conversations"]
         try:
             result = messages_collection.insert_one(msg_doc)
         except PyMongoError:
@@ -97,20 +88,8 @@ class MessageService:
         if not 1 <= limit <= MessageService.MAX_MESSAGE_LIMIT:
             raise HTTPException(status_code=400, detail="Message limit must be between 1 and 100.")
 
-        try:
-            conv_oid = ObjectId(conversation_id)
-            user_oid = ObjectId(user_id)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid ID format.")
-
-        conversations_collection = db.get_db()["conversations"]
-        conversation = conversations_collection.find_one({"_id": conv_oid})
-
-        if conversation is None:
-            raise HTTPException(status_code=404, detail="Conversation not found.")
-
-        if user_oid not in conversation.get("participants", []):
-            raise HTTPException(status_code=403, detail="Access denied.")
+        conversation = ConversationService.get_authorized_conversation(conversation_id, user_id)
+        conv_oid = conversation["_id"]
 
         messages_collection = db.get_db()["messages"]
         message_filter: dict[str, Any] = {"conversation_id": conv_oid}

@@ -61,6 +61,8 @@ def test_expected_index_specifications_are_centralized():
         "admin_users_email_unique_idx",
         "admin_sessions_token_hash_unique_idx",
         "admin_sessions_expires_ttl_idx",
+        "conversations_org_updated_idx",
+        "conversations_org_name_unique_idx",
         "audit_logs_created_at_idx",
         "audit_logs_org_created_at_idx",
         "audit_logs_actor_created_at_idx",
@@ -208,7 +210,7 @@ def test_one_failed_index_does_not_stop_other_index_attempts(monkeypatch):
 
     assert len(fake_database["users"].create_calls) == 1
     assert len(fake_database["messages"].create_calls) == 3
-    assert len(fake_database["conversations"].create_calls) == 2
+    assert len(fake_database["conversations"].create_calls) == 4
 
 
 def test_verify_indexes_reports_missing_expected_indexes():
@@ -229,6 +231,8 @@ def test_verify_indexes_reports_missing_expected_indexes():
     assert set(result["conversations"]["missing"]) == {
         "conversations_participants_idx",
         "unique_conversation_participant_key_idx",
+        "conversations_org_updated_idx",
+        "conversations_org_name_unique_idx",
     }
     assert result["conversations"]["misconfigured"] == []
     assert result["messages"] == {
@@ -411,3 +415,25 @@ def test_audit_indexes_are_centralized_with_exact_key_order():
     assert specs["audit_logs_org_created_at_idx"]["keys"] == [("organization_id", 1), ("created_at", -1)]
     assert specs["audit_logs_actor_created_at_idx"]["keys"] == [("actor_id", 1), ("created_at", -1)]
     assert specs["audit_logs_event_type_created_at_idx"]["keys"] == [("event_type", 1), ("created_at", -1)]
+
+
+def test_organization_conversation_indexes_have_expected_keys_and_properties():
+    Database.ensure_indexes()
+    indexes = {item["name"]: item for item in db.get_db()["conversations"].list_indexes()}
+
+    assert indexes["conversations_org_updated_idx"]["key"] == {"organization_id": 1, "updated_at": -1}
+    assert indexes["conversations_org_updated_idx"]["sparse"] is True
+
+    assert indexes["conversations_org_name_unique_idx"]["key"] == {"organization_id": 1, "name": 1}
+    assert indexes["conversations_org_name_unique_idx"]["unique"] is True
+    assert indexes["conversations_org_name_unique_idx"]["sparse"] is True
+
+
+def test_organization_conversation_indexes_are_centralized_with_exact_key_order():
+    specs = {spec["name"]: spec for spec in Database.EXPECTED_INDEXES if spec["collection"] == "conversations"}
+
+    assert specs["conversations_org_updated_idx"]["keys"] == [("organization_id", 1), ("updated_at", -1)]
+    assert specs["conversations_org_updated_idx"]["options"] == {"sparse": True}
+
+    assert specs["conversations_org_name_unique_idx"]["keys"] == [("organization_id", 1), ("name", 1)]
+    assert specs["conversations_org_name_unique_idx"]["options"] == {"unique": True, "sparse": True}

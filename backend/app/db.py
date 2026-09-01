@@ -34,6 +34,18 @@ class Database:
             "options": {"unique": True, "sparse": True},
         },
         {
+            "collection": "conversations",
+            "name": "conversations_org_updated_idx",
+            "keys": [("organization_id", ASCENDING), ("updated_at", DESCENDING)],
+            "options": {"sparse": True},
+        },
+        {
+            "collection": "conversations",
+            "name": "conversations_org_name_unique_idx",
+            "keys": [("organization_id", ASCENDING), ("name", ASCENDING)],
+            "options": {"unique": True, "sparse": True},
+        },
+        {
             "collection": "messages",
             "name": "messages_conversation_id_idx",
             "keys": [("conversation_id", ASCENDING)],

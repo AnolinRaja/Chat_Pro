@@ -1,16 +1,29 @@
+from __future__ import annotations
+
 import json
 import logging
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from app.config import settings
 from app.dependencies import get_current_user, get_current_user_from_token
-from app.schemas.conversation import ConversationCreate, ConversationResponse, MessageCreate, MessageResponse
-from app.services.conversation_service import ConversationService
+from app.schemas.audit import AuditAction, AuditActorType, AuditEventType, AuditStatus
+from app.schemas.conversation import (
+    ConversationCreate,
+    ConversationResponse,
+    MessageCreate,
+    MessageResponse,
+    OrganizationConversationCreate,
+    OrganizationConversationResponse,
+)
+from app.services.audit_service import AuditService
 from app.services.connection_manager import connection_manager
+from app.services.conversation_service import ConversationService
 from app.services.message_service import MessageService
+from app.services.organization_membership_service import OrganizationMembershipService
 from app.services.rate_limiter import auth_rate_limiter
 
 router = APIRouter(tags=["conversations"])
@@ -197,6 +210,120 @@ def list_conversations(current_user: dict = Depends(get_current_user)):
         raise
     except Exception:
         raise HTTPException(status_code=500, detail="Unable to retrieve conversations.")
+
+
+@router.get("/conversations/{conversation_id}")
+def get_conversation_by_id(conversation_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        return ConversationService.get_conversation(conversation_id, current_user["id"])
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to retrieve conversation.")
+
+
+@router.post("/organizations/{organization_id}/conversations", response_model=OrganizationConversationResponse, status_code=status.HTTP_201_CREATED)
+def create_organization_conversation(
+    request: Request,
+    organization_id: str,
+    payload: OrganizationConversationCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        from bson import ObjectId
+        ObjectId(organization_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format."
+        )
+
+    ip_address, user_agent = AuditService.extract_request_context(request)
+
+    if not OrganizationMembershipService.check_membership(current_user["id"], organization_id):
+        AuditService.log_event(
+            event_type=AuditEventType.ORGANIZATION_CONVERSATION_ACCESS_DENIED,
+            actor_type=AuditActorType.USER,
+            action=AuditAction.CREATE,
+            status=AuditStatus.FAILURE,
+            actor_id=current_user["id"],
+            actor_role="user",
+            organization_id=organization_id,
+            target_type="conversation",
+            metadata={"reason": "cross_tenant_access_blocked"},
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: active organization membership required.",
+        )
+
+    try:
+        conv = ConversationService.create_organization_conversation(
+            organization_id=organization_id,
+            name=payload.name,
+            description=payload.description,
+            created_by=current_user["id"],
+        )
+    except HTTPException:
+        raise
+
+    AuditService.log_event(
+        event_type=AuditEventType.ORGANIZATION_CONVERSATION_CREATED,
+        actor_type=AuditActorType.USER,
+        action=AuditAction.CREATE,
+        status=AuditStatus.SUCCESS,
+        actor_id=current_user["id"],
+        actor_role="user",
+        organization_id=organization_id,
+        target_type="conversation",
+        target_id=conv["id"],
+        metadata={"name": conv["name"]},
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    return OrganizationConversationResponse(**conv)
+
+
+@router.get("/organizations/{organization_id}/conversations", response_model=list[OrganizationConversationResponse])
+def list_organization_conversations(
+    request: Request,
+    organization_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        from bson import ObjectId
+        ObjectId(organization_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format."
+        )
+
+    if not OrganizationMembershipService.check_membership(current_user["id"], organization_id):
+        ip_address, user_agent = AuditService.extract_request_context(request)
+        AuditService.log_event(
+            event_type=AuditEventType.ORGANIZATION_CONVERSATION_ACCESS_DENIED,
+            actor_type=AuditActorType.USER,
+            action=AuditAction.READ,
+            status=AuditStatus.FAILURE,
+            actor_id=current_user["id"],
+            actor_role="user",
+            organization_id=organization_id,
+            target_type="conversation",
+            metadata={"reason": "cross_tenant_access_blocked"},
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: active organization membership required.",
+        )
+
+    channels = ConversationService.list_organization_conversations(organization_id)
+    return [OrganizationConversationResponse(**c) for c in channels]
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)

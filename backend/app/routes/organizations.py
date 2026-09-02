@@ -84,3 +84,22 @@ def get_user_organization_status(
         "memberships": [UserOrganizationMembershipStatus(**m) for m in memberships],
         "requests": [UserOrganizationRequestStatus(**r) for r in requests],
     }
+
+
+direct_router = APIRouter(prefix="/organizations", tags=["organizations"])
+
+
+@direct_router.post("/join", response_model=OrganizationRegistrationRequestResponse)
+def direct_join_organization(
+    request: Request,
+    payload: OrganizationJoinRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    return join_organization(request=request, payload=payload, current_user=current_user)
+
+
+@direct_router.get("/my", response_model=UserOrganizationStatusResponse)
+def get_user_organizations_my(
+    current_user: dict = Depends(get_current_user),
+):
+    return get_user_organization_status(current_user=current_user)

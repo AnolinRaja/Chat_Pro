@@ -5,6 +5,7 @@ import CreateChannelModal from '../components/CreateChannelModal.jsx'
 import JoinOrgModal from '../components/JoinOrgModal.jsx'
 import MessageComposer from '../components/MessageComposer.jsx'
 import MessageList from '../components/MessageList.jsx'
+import OrgRequestsModal from '../components/OrgRequestsModal.jsx'
 import UserSearch from '../components/UserSearch.jsx'
 import WorkspaceSelector from '../components/WorkspaceSelector.jsx'
 import { useAuth } from '../context/useAuth.js'
@@ -31,8 +32,10 @@ function ChatPage() {
 
   // Workspace & Organizations
   const [memberships, setMemberships] = useState([])
+  const [requests, setRequests] = useState([])
   const [activeWorkspace, setActiveWorkspace] = useState(null) // null = Direct Messages, or membership object
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true)
+  const [isRefreshingOrgs, setIsRefreshingOrgs] = useState(false)
   const [orgError, setOrgError] = useState('')
 
   // Direct conversations
@@ -56,23 +59,49 @@ function ChatPage() {
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
   const [isJoinOrgOpen, setIsJoinOrgOpen] = useState(false)
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false)
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false)
   const [isCreatingDm, setIsCreatingDm] = useState(false)
+
+  // Reusable organization and requests refresh
+  const refreshOrganizations = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setIsRefreshingOrgs(true)
+    }
+    try {
+      setOrgError('')
+      const result = await getMyOrganizations()
+      setMemberships(result.memberships || [])
+      setRequests(result.requests || [])
+      return result
+    } catch (error) {
+      const err = formatError(error, 'Unable to load organizations.')
+      setOrgError(err)
+      throw error
+    } finally {
+      if (showRefreshIndicator) {
+        setIsRefreshingOrgs(false)
+      }
+      setIsLoadingOrgs(false)
+    }
+  }
 
   // Load organizations on mount
   useEffect(() => {
     let active = true
-    const loadOrgs = async () => {
-      try {
-        setIsLoadingOrgs(true)
-        const result = await getMyOrganizations()
-        if (active) setMemberships(result.memberships || [])
-      } catch (error) {
+    setIsLoadingOrgs(true)
+    getMyOrganizations()
+      .then((result) => {
+        if (active) {
+          setMemberships(result.memberships || [])
+          setRequests(result.requests || [])
+        }
+      })
+      .catch((error) => {
         if (active) setOrgError(formatError(error, 'Unable to load organizations.'))
-      } finally {
+      })
+      .finally(() => {
         if (active) setIsLoadingOrgs(false)
-      }
-    }
-    loadOrgs()
+      })
     return () => { active = false }
   }, [])
 
@@ -223,9 +252,8 @@ function ChatPage() {
   // Join Org success callback
   const handleJoinOrgSuccess = async (result) => {
     try {
-      const orgStatus = await getMyOrganizations()
-      const updatedMemberships = orgStatus.memberships || []
-      setMemberships(updatedMemberships)
+      const orgStatus = await refreshOrganizations()
+      const updatedMemberships = orgStatus?.memberships || []
 
       // If membership was created/active, auto-select it
       const targetOrg = updatedMemberships.find(
@@ -236,6 +264,20 @@ function ChatPage() {
       }
     } catch {
       // Ignored, user can retry
+    }
+  }
+
+  // Open organization requests modal and immediately refresh status
+  const handleOpenRequestsModal = () => {
+    setIsRequestsModalOpen(true)
+    refreshOrganizations(true).catch(() => {})
+  }
+
+  // Select an approved organization directly from the requests modal
+  const handleSelectWorkspaceFromRequest = (organizationId) => {
+    const target = memberships.find((m) => m.organization_id === organizationId)
+    if (target) {
+      handleSelectWorkspace(target)
     }
   }
 
@@ -266,9 +308,11 @@ function ChatPage() {
       {/* Workspace Rail */}
       <WorkspaceSelector
         memberships={memberships}
+        requests={requests}
         activeWorkspace={activeWorkspace}
         onSelectWorkspace={handleSelectWorkspace}
         onOpenJoinOrg={() => setIsJoinOrgOpen(true)}
+        onOpenRequestsModal={handleOpenRequestsModal}
       />
 
       {/* Primary Sidebar: Either DMs or Organization Channels */}
@@ -411,6 +455,26 @@ function ChatPage() {
           organization={activeWorkspace}
           onClose={() => setIsCreateChannelOpen(false)}
           onSuccess={handleCreateChannelSuccess}
+        />
+      )}
+
+      {isRequestsModalOpen && (
+        <OrgRequestsModal
+          isOpen={isRequestsModalOpen}
+          requests={requests}
+          memberships={memberships}
+          isLoading={isRefreshingOrgs}
+          error={orgError}
+          onClose={() => setIsRequestsModalOpen(false)}
+          onRefresh={() => refreshOrganizations(true).catch(() => {})}
+          onOpenJoinOrg={() => {
+            setIsRequestsModalOpen(false)
+            setIsJoinOrgOpen(true)
+          }}
+          onSelectWorkspace={(orgId) => {
+            handleSelectWorkspaceFromRequest(orgId)
+            setIsRequestsModalOpen(false)
+          }}
         />
       )}
     </section>

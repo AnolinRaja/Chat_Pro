@@ -9,11 +9,14 @@ function getInitials(name) {
 
 function WorkspaceSelector({
   memberships = [],
+  requests = [],
   activeWorkspace, // null = Direct Messages, or membership object
   onSelectWorkspace,
   onOpenJoinOrg,
+  onOpenRequestsModal,
 }) {
   const isDMsActive = activeWorkspace === null
+  const pendingCount = requests.filter((r) => r.status === 'PENDING').length
 
   return (
     <nav
@@ -87,29 +90,73 @@ function WorkspaceSelector({
         })}
       </div>
 
-      {/* Join Organization Button */}
-      <button
-        type="button"
-        onClick={onOpenJoinOrg}
-        title="Join an Organization"
-        aria-label="Join an Organization"
-        className="mt-auto grid h-11 w-11 place-items-center rounded-2xl border border-dashed border-[#8eaaa5] bg-white text-[#0f766e] transition-all hover:border-[#0f766e] hover:bg-[#d9f0eb] hover:rounded-xl"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-5 w-5"
-          aria-hidden="true"
+      {/* Bottom Actions Section */}
+      <div className="mt-auto flex flex-col items-center gap-2.5">
+        {/* Organization Requests Button */}
+        <button
+          type="button"
+          onClick={onOpenRequestsModal}
+          title={
+            pendingCount > 0
+              ? `Organization Requests (${pendingCount} pending)`
+              : 'Organization Requests'
+          }
+          aria-label={
+            pendingCount > 0
+              ? `Organization Requests (${pendingCount} pending)`
+              : 'Organization Requests'
+          }
+          className="relative grid h-11 w-11 place-items-center rounded-2xl border border-[#d2e0dc] bg-white text-[#48615c] transition-all hover:bg-[#d9f0eb] hover:text-[#0f766e] hover:rounded-xl"
         >
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+            aria-hidden="true"
+          >
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+
+          {pendingCount > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[#edf3f1]"
+              aria-label={`${pendingCount} pending requests`}
+            >
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        {/* Join Organization Button */}
+        <button
+          type="button"
+          onClick={onOpenJoinOrg}
+          title="Join an Organization"
+          aria-label="Join an Organization"
+          className="grid h-11 w-11 place-items-center rounded-2xl border border-dashed border-[#8eaaa5] bg-white text-[#0f766e] transition-all hover:border-[#0f766e] hover:bg-[#d9f0eb] hover:rounded-xl"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+            aria-hidden="true"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      </div>
     </nav>
   )
 }

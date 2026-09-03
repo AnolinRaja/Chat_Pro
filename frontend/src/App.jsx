@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/useAuth.js'
+import InstallPwaButton from './components/InstallPwaButton.jsx'
 import ChatPage from './pages/ChatPage.jsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
@@ -27,7 +28,8 @@ function AppShell({ children }) {
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#0f766e] text-lg font-bold text-white">C</span>
             <span className="text-xl font-semibold tracking-tight">ChatPRO</span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm font-medium" aria-label="Primary navigation">
+          <nav className="flex items-center gap-2 text-sm font-medium" aria-label="Primary navigation">
+            <InstallPwaButton />
             {user ? (
               <button type="button" onClick={logout} className="rounded-lg bg-[#172321] px-3 py-2 text-white hover:bg-[#2d413c]">Log out</button>
             ) : (

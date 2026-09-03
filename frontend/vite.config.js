@@ -20,6 +20,7 @@ export default defineConfig({
         'pwa-maskable-512x512.png',
       ],
       manifest: {
+        id: '/',
         name: 'ChatPRO',
         short_name: 'ChatPRO',
         description: 'Secure, real-time team chat & workspace application',
@@ -29,6 +30,9 @@ export default defineConfig({
         orientation: 'any',
         scope: '/',
         start_url: '/',
+        launch_handler: {
+          client_mode: 'navigate-existing',
+        },
         icons: [
           {
             src: '/pwa-192x192.png',

@@ -1,26 +1,35 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Cookie, status
+from bson import ObjectId
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 
 from app.config import settings
+from app.db import db
 from app.dependencies import get_current_user
-from app.services.session_service import SessionService
 from app.schemas.auth import (
+    EmailRequest,
+    LoginResponse,
     OtpRequiredResponse,
     OtpVerificationRequest,
-    EmailRequest,
     PasswordResetChallengeResponse,
     PasswordResetComplete,
     PasswordResetRequest,
     RegistrationResponse,
     TokenResponse,
+    TwoFactorConfirmRequest,
+    TwoFactorDisableRequest,
+    TwoFactorLoginRequest,
+    TwoFactorSetupResponse,
+    TwoFactorStatusResponse,
     UserLogin,
     UserPublic,
 )
 from app.schemas.user import UserCreate
 from app.services.auth_service import AuthService
+from app.services.jwt_service import JWTService
 from app.services.rate_limiter import auth_rate_limiter
-from app.services.otp_service import OtpRateLimitError, OtpService
+from app.services.session_service import SessionService
+from app.services.two_factor_service import TwoFactorService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -58,15 +67,65 @@ def register_user(request: Request, payload: UserCreate):
         raise HTTPException(status_code=500, detail="Unable to register user at this time.")
 
 
-@router.post("/login", response_model=OtpRequiredResponse)
-def login_user(request: Request, payload: UserLogin):
+@router.post("/login", response_model=LoginResponse)
+def login_user(request: Request, response: Response, payload: UserLogin):
     _enforce_auth_rate_limit(request, "login")
-    try:
-        return AuthService.login_user(payload.email, payload.password)
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(status_code=500, detail="Unable to login at this time.")
+    result = AuthService.login_user(payload.email, payload.password)
+
+    # 1. Email verification required
+    if result.get("requires_otp"):
+        return result
+
+    # 2. 2SV required
+    if result.get("requires_2sv"):
+        return result
+
+    # 3. Direct login (2SV OFF)
+    user = result["user"]
+    session_id, raw_token = SessionService.create_session(str(user["_id"]))
+
+    cookie_value = f"{session_id}.{raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+    )
+
+    access_token = JWTService.create_access_token(str(user["_id"]))
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "requires_2sv": False,
+    }
+
+
+@router.post("/login/2sv", response_model=TokenResponse)
+def verify_2sv_login(request: Request, response: Response, payload: TwoFactorLoginRequest):
+    _enforce_auth_rate_limit(request, "login_2sv")
+    user = AuthService.verify_2sv_login(payload.two_factor_token, payload.code)
+
+    session_id, raw_token = SessionService.create_session(str(user["_id"]))
+
+    cookie_value = f"{session_id}.{raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+    )
+
+    access_token = JWTService.create_access_token(str(user["_id"]))
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post("/register/verify")
@@ -89,6 +148,78 @@ def verify_login(payload: OtpVerificationRequest, response: Response):
 
     session_id, raw_token = SessionService.create_session(str(user["_id"]))
 
+    cookie_value = f"{session_id}.{raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+    )
+    return result
+
+
+@router.get("/2sv/status", response_model=TwoFactorStatusResponse)
+def get_2sv_status(current_user: dict = Depends(get_current_user)):
+    user = db.get_db()["users"].find_one({"_id": ObjectId(current_user["id"])})
+    two_factor_enabled = bool(user.get("two_factor_enabled", False)) if user else False
+    recovery_hashes = user.get("two_factor_recovery_hashes", []) if user else []
+    return {
+        "two_factor_enabled": two_factor_enabled,
+        "recovery_codes_remaining": len(recovery_hashes),
+    }
+
+
+@router.post("/2sv/setup", response_model=TwoFactorSetupResponse)
+def setup_2sv(request: Request, current_user: dict = Depends(get_current_user)):
+    _enforce_auth_rate_limit(request, "2sv_setup")
+    return TwoFactorService.setup_2sv(current_user["id"], current_user["email"])
+
+
+@router.post("/2sv/confirm")
+def confirm_2sv(
+    request: Request,
+    response: Response,
+    payload: TwoFactorConfirmRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    _enforce_auth_rate_limit(request, "2sv_confirm")
+    result = TwoFactorService.confirm_2sv(current_user["id"], payload.code)
+
+    # Revoke old sessions and issue a fresh session
+    session_id, raw_token = SessionService.create_session(current_user["id"])
+    cookie_value = f"{session_id}.{raw_token}"
+    response.set_cookie(
+        key="refresh_token",
+        value=cookie_value,
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
+        path="/",
+        )
+    return result
+
+
+@router.post("/2sv/disable")
+def disable_2sv(
+    request: Request,
+    response: Response,
+    payload: TwoFactorDisableRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    _enforce_auth_rate_limit(request, "2sv_disable")
+    user = db.get_db()["users"].find_one({"_id": ObjectId(current_user["id"])})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    password_verified = AuthService.verify_password(payload.password, user.get("password_hash", ""))
+    result = TwoFactorService.disable_2sv(current_user["id"], password_verified, payload.code)
+
+    # Revoke old sessions and issue a fresh session
+    session_id, raw_token = SessionService.create_session(current_user["id"])
     cookie_value = f"{session_id}.{raw_token}"
     response.set_cookie(
         key="refresh_token",
@@ -140,7 +271,6 @@ def refresh_session(response: Response, refresh_token: str | None = Cookie(None)
         path="/",
     )
 
-    from app.services.jwt_service import JWTService
     access_token = JWTService.create_access_token(user_id)
 
     return {

@@ -104,7 +104,7 @@ def test_login_and_registration_have_isolated_rate_limit_buckets():
     assert "access_token" not in login.json()
 
 
-def test_successful_login_requires_otp_before_issuing_token():
+def test_successful_login_with_2sv_off_issues_token_directly():
     client.post(
         "/auth/register",
         json={"name": "Successful Login", "email": "successful-login@example.com", "password": "Password123"},
@@ -117,5 +117,5 @@ def test_successful_login_requires_otp_before_issuing_token():
     )
 
     assert response.status_code == 200
-    assert response.json()["requires_otp"] is True
-    assert "access_token" not in response.json()
+    assert response.json()["requires_2sv"] is False
+    assert "access_token" in response.json()

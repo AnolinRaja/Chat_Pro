@@ -37,11 +37,11 @@ def cleanup_test_data():
 def register_and_login(user):
     client.post("/auth/register", json=user)
     client.post("/auth/register/verify", json={"email": user["email"], "otp": "123456"})
-    client.post(
+    response = client.post(
         "/auth/login",
         json={"email": user["email"], "password": user["password"]},
     )
-    return client.post("/auth/login/verify", json={"email": user["email"], "otp": "123456"}).json()["access_token"]
+    return response.json()["access_token"]
 
 
 def create_conversation():

@@ -13,6 +13,8 @@ from app.config import settings
 from app.schemas.user import UserCreate
 from app.services.jwt_service import JWTService
 from app.services.otp_service import OtpDeliveryError, OtpPurpose, OtpRateLimitError, OtpService, OtpStorageError, OtpVerificationError
+from app.services.session_service import SessionService
+from app.services.two_factor_service import TwoFactorService
 
 
 class AuthService:
@@ -40,6 +42,7 @@ class AuthService:
             "created_at": now,
             "updated_at": now,
             "email_verified": False,
+            "two_factor_enabled": False,
         }
 
         try:
@@ -152,29 +155,64 @@ class AuthService:
         return user
 
     @staticmethod
-    def login_user(email: str, password: str) -> dict[str, str]:
+    def login_user(email: str, password: str) -> dict[str, Any]:
         normalized_email = AuthService.normalize_email(email)
         user = db.get_db()["users"].find_one({"email": normalized_email})
         if user is None or not AuthService.verify_password(password, user.get("password_hash", "")):
             raise HTTPException(status_code=401, detail="Invalid email or password.")
-        purpose = OtpPurpose.REGISTRATION if user.get("email_verified", True) is False else OtpPurpose.LOGIN
-        try:
-            OtpService.request_otp(user["email"], purpose)
-        except OtpRateLimitError:
-            if purpose is not OtpPurpose.REGISTRATION:
-                raise HTTPException(status_code=429, detail="Too many verification requests. Please try again later.")
-        except OtpDeliveryError as error:
-            AuthService._remove_failed_otp(error)
-            raise HTTPException(status_code=503, detail="Unable to send verification code. Please try again.")
-        except OtpStorageError:
-            raise HTTPException(status_code=503, detail="Unable to send verification code. Please try again.")
 
+        # If email is unverified, trigger/require registration OTP
+        if user.get("email_verified", True) is False:
+            try:
+                OtpService.request_otp(user["email"], OtpPurpose.REGISTRATION)
+            except OtpRateLimitError:
+                pass
+            except (OtpDeliveryError, OtpStorageError):
+                raise HTTPException(status_code=503, detail="Unable to send verification code. Please try again.")
+
+            return {
+                "requires_otp": True,
+                "email": user["email"],
+                "purpose": OtpPurpose.REGISTRATION.value,
+                "message": "Email verification required. Verification code sent to your email.",
+            }
+
+        # If 2SV is enabled, issue short-lived intermediate challenge token
+        if user.get("two_factor_enabled", False):
+            two_factor_token = JWTService.create_auth_challenge(str(user["_id"]), "2sv_login")
+            return {
+                "requires_2sv": True,
+                "two_factor_token": two_factor_token,
+                "message": "Two-Step Verification required.",
+            }
+
+        # Normal login (2SV OFF): return user directly for session/token generation
         return {
-            "requires_otp": True,
-            "email": user["email"],
-            "purpose": purpose.value,
-            "message": "Verification code sent to your email.",
+            "requires_2sv": False,
+            "user": user,
         }
+
+    @staticmethod
+    def verify_2sv_login(two_factor_token: str, code: str) -> dict[str, Any]:
+        try:
+            payload = JWTService.decode_auth_challenge(two_factor_token, "2sv_login")
+        except Exception:
+            raise HTTPException(status_code=401, detail="Invalid or expired verification session.")
+
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid or expired verification session.")
+
+        # Validate TOTP code or atomically consume recovery code
+        is_valid = TwoFactorService.verify_and_consume_2sv(user_id, code)
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid verification code or recovery code.")
+
+        user = db.get_db()["users"].find_one({"_id": ObjectId(user_id)})
+        if not user or user.get("email_verified", True) is False:
+            raise HTTPException(status_code=401, detail="Unable to complete sign in.")
+
+        return user
 
     @staticmethod
     def verify_registration(email: str, otp: str) -> dict[str, Any]:
@@ -293,5 +331,7 @@ class AuthService:
                 {"_id": ObjectId(payload["sub"])},
                 {"$set": {"password_hash": AuthService.hash_password(new_password), "updated_at": datetime.now(timezone.utc)}},
             )
+            # Revoke all existing user sessions upon password reset for security
+            SessionService.revoke_all_user_sessions(str(payload["sub"]))
         except PyMongoError:
             raise HTTPException(status_code=503, detail="Unable to reset password. Please try again.")

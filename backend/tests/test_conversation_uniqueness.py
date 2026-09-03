@@ -37,7 +37,7 @@ def register_and_login(user):
         "/auth/login",
         json={"email": user["email"], "password": user["password"]},
     )
-    return client.post("/auth/login/verify", json={"email": user["email"], "otp": "123456"}).json()["access_token"]
+    return response.json()["access_token"]
 
 
 def test_canonical_participant_key_is_deterministic():
@@ -194,15 +194,11 @@ def test_conversation_and_messages_are_available_after_fresh_login():
     )
     assert sent.status_code == 201
 
-    with patch.object(settings, "OTP_RESEND_COOLDOWN_SECONDS", 0):
-        client.post(
-            "/auth/login",
-            json={"email": TEST_USERS[0]["email"], "password": TEST_USERS[0]["password"]},
-        )
-        fresh_token = client.post(
-            "/auth/login/verify",
-            json={"email": TEST_USERS[0]["email"], "otp": "123456"},
-        ).json()["access_token"]
+    login_res = client.post(
+        "/auth/login",
+        json={"email": TEST_USERS[0]["email"], "password": TEST_USERS[0]["password"]},
+    )
+    fresh_token = login_res.json()["access_token"]
     conversations = client.get(
         "/conversations",
         headers={"Authorization": f"Bearer {fresh_token}"},

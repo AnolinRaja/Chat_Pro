@@ -84,9 +84,8 @@ def setup_org_admin(org_id: str, email: str = ORG_A_ADMIN_EMAIL) -> tuple[dict, 
 def setup_user(email: str = USER_1_EMAIL, name: str = "Test User") -> tuple[dict, str]:
     client.post("/auth/register", json={"name": name, "email": email, "password": PASSWORD})
     client.post("/auth/register/verify", json={"email": email, "otp": "123456"})
-    client.post("/auth/login", json={"email": email, "password": PASSWORD})
-    verify_res = client.post("/auth/login/verify", json={"email": email, "otp": "123456"})
-    token = verify_res.json()["access_token"]
+    login_res = client.post("/auth/login", json={"email": email, "password": PASSWORD})
+    token = login_res.json()["access_token"]
     user = db.get_db()["users"].find_one({"email": email})
     return {"id": str(user["_id"]), "name": user["name"], "email": user["email"]}, token
 

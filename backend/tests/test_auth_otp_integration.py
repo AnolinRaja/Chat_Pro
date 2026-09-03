@@ -126,25 +126,23 @@ def test_registration_otp_cannot_be_reused_or_used_for_login():
     assert verify_registration().status_code == 401
 
 
-def test_login_requires_otp_and_does_not_issue_jwt_early():
+def test_unverified_login_requires_otp_and_does_not_issue_jwt_early():
     register()
-    verify_registration()
 
     response = login()
 
     assert response.status_code == 200
     assert response.json()["requires_otp"] is True
     assert "access_token" not in response.json()
-    verified = verify_login()
+    verified = verify_registration()
     assert verified.status_code == 200
-    assert "access_token" in verified.json()
+    login_success = login()
+    assert login_success.status_code == 200
+    assert "access_token" in login_success.json()
 
 
 def test_login_invalid_otp_does_not_issue_jwt():
     register()
-    verify_registration()
-    login()
-
     response = client.post("/auth/login/verify", json={"email": EMAIL, "otp": "000000"})
 
     assert response.status_code == 401
@@ -154,7 +152,6 @@ def test_login_invalid_otp_does_not_issue_jwt():
 def test_login_otp_cannot_be_used_for_password_reset():
     register()
     verify_registration()
-    login()
 
     response = client.post("/auth/forgot-password/verify", json={"email": EMAIL, "otp": "123456"})
 
@@ -194,7 +191,7 @@ def test_password_reset_replaces_bcrypt_password_and_challenge_is_single_use():
 
     new_login = client.post("/auth/login", json={"email": EMAIL, "password": "NewStrongPassword123"})
     assert new_login.status_code == 200
-    assert verify_login().status_code == 200
+    assert "access_token" in new_login.json()
 
 
 def test_legacy_user_without_email_verified_field_remains_compatible():
@@ -210,4 +207,4 @@ def test_legacy_user_without_email_verified_field_remains_compatible():
     response = login()
 
     assert response.status_code == 200
-    assert response.json()["requires_otp"] is True
+    assert "access_token" in response.json()

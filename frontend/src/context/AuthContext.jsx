@@ -7,9 +7,9 @@ function getErrorMessage(error, fallback) {
   const detail = error.response.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((item) => item.msg).join(' ')
-  if (error.response.status === 401) return 'Invalid email or password.'
+  if (error.response.status === 401) return 'Invalid credentials or verification code.'
   if (error.response.status === 409) return 'An account with that email already exists.'
-  if (error.response.status === 429) return 'Too many verification requests. Please wait and try again.'
+  if (error.response.status === 429) return 'Too many requests. Please wait and try again.'
   return fallback
 }
 
@@ -31,10 +31,28 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials)
+      if (response.data.access_token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
+        await refreshUser()
+      }
       return response.data
     } catch (error) {
       clearSession()
       throw new Error(getErrorMessage(error, 'Unable to sign in. Please try again.'), { cause: error })
+    }
+  }
+
+  const verify2SV = async (two_factor_token, code) => {
+    try {
+      const response = await api.post('/auth/login/2sv', { two_factor_token, code })
+      if (response.data.access_token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
+        await refreshUser()
+      }
+      return response.data
+    } catch (error) {
+      clearSession()
+      throw new Error(getErrorMessage(error, 'Invalid verification code or recovery code. Please try again.'), { cause: error })
     }
   }
 
@@ -113,7 +131,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <authContextValue.Provider value={{ user, isLoading, login, verifyLogin, register, logout, refreshUser }}>
+    <authContextValue.Provider value={{ user, isLoading, login, verify2SV, verifyLogin, register, logout, refreshUser }}>
       {children}
     </authContextValue.Provider>
   )

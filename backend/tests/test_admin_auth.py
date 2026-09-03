@@ -668,8 +668,8 @@ def test_normal_user_jwt_cannot_access_admin_me():
         json={"name": "Normal User", "email": "normaluser@example.com", "password": "UserPassword123"},
     )
     client.post("/auth/register/verify", json={"email": "normaluser@example.com", "otp": "123456"})
-    client.post("/auth/login", json={"email": "normaluser@example.com", "password": "UserPassword123"})
-    user_token = client.post("/auth/login/verify", json={"email": "normaluser@example.com", "otp": "123456"}).json()["access_token"]
+    login_res = client.post("/auth/login", json={"email": "normaluser@example.com", "password": "UserPassword123"})
+    user_token = login_res.json()["access_token"]
 
     response = client.get(
         "/admin/auth/me",
@@ -733,8 +733,7 @@ def test_normal_refresh_token_cannot_refresh_admin_session():
         json={"name": "Normal User", "email": "normaluser@example.com", "password": "UserPassword123"},
     )
     client.post("/auth/register/verify", json={"email": "normaluser@example.com", "otp": "123456"})
-    client.post("/auth/login", json={"email": "normaluser@example.com", "password": "UserPassword123"})
-    login_res = client.post("/auth/login/verify", json={"email": "normaluser@example.com", "otp": "123456"})
+    login_res = client.post("/auth/login", json={"email": "normaluser@example.com", "password": "UserPassword123"})
     user_cookie = login_res.cookies.get("refresh_token")
 
     # Send user cookie to admin refresh endpoint

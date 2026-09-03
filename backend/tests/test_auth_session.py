@@ -149,9 +149,7 @@ def test_multiple_sessions_independent():
 def test_login_verify_creates_session_cookie():
     register_and_verify_user()
     
-    # OTP is mock OTP "123456" in non-test_otp_service.py test runs due to conftest.py
-    client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
-    response = client.post("/auth/login/verify", json={"email": TEST_EMAIL, "otp": "123456"})
+    response = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -171,8 +169,7 @@ def test_login_verify_creates_session_cookie():
 def test_refresh_endpoint_success():
     register_and_verify_user()
     
-    client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
-    res_login = client.post("/auth/login/verify", json={"email": TEST_EMAIL, "otp": "123456"})
+    res_login = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     
     # Refresh
     client.cookies.set("refresh_token", res_login.cookies["refresh_token"])
@@ -189,8 +186,7 @@ def test_refresh_endpoint_success():
 def test_logout_endpoint_success():
     register_and_verify_user()
     
-    client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
-    res_login = client.post("/auth/login/verify", json={"email": TEST_EMAIL, "otp": "123456"})
+    res_login = client.post("/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     
     # Logout
     client.cookies.clear()

@@ -30,7 +30,7 @@ def register_and_login(user):
         "/auth/login",
         json={"email": user["email"], "password": user["password"]},
     )
-    return client.post("/auth/login/verify", json={"email": user["email"], "otp": "123456"}).json()["access_token"]
+    return response.json()["access_token"]
 
 
 def test_authenticated_user_can_search_by_name_and_excludes_themselves():

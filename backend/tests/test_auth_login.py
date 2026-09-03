@@ -29,15 +29,15 @@ def verify_registration(email):
 
 
 def login_and_verify(email=TEST_EMAIL, password=TEST_PASSWORD):
-    challenge = client.post("/auth/login", json={"email": email, "password": password})
-    return client.post("/auth/login/verify", json={"email": email, "otp": "123456"}), challenge
+    res = client.post("/auth/login", json={"email": email, "password": password})
+    return res, res
 
 
 def test_successful_login_returns_token():
     register_user({"name": "Test User", "email": TEST_EMAIL, "password": TEST_PASSWORD})
     verify_registration(TEST_EMAIL)
 
-    response, challenge = login_and_verify()
+    response, _ = login_and_verify()
 
     assert response.status_code == 200
     body = response.json()
@@ -45,8 +45,7 @@ def test_successful_login_returns_token():
     assert body["token_type"] == "bearer"
     assert "password" not in body
     assert "password_hash" not in body
-    assert challenge.json()["requires_otp"] is True
-    assert "access_token" not in challenge.json()
+    assert body.get("requires_2sv") is False
 
 
 def test_login_token_type_is_bearer():
@@ -138,10 +137,10 @@ def test_wrong_signature_is_rejected():
     user = db.get_db()["users"].find_one({"email": TEST_EMAIL})
 
     wrong_token = jwt.encode(
-    {"sub": str(user["_id"]), "exp": 9999999999},
-    "definitely-wrong-secret-for-testing-only-123456789",
-    algorithm=settings.JWT_ALGORITHM
-)
+        {"sub": str(user["_id"]), "exp": 9999999999},
+        "definitely-wrong-secret-for-testing-only-123456789",
+        algorithm=settings.JWT_ALGORITHM
+    )
     response = client.get("/auth/me", headers={"Authorization": f"Bearer {wrong_token}"})
 
     assert response.status_code == 401

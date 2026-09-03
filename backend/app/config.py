@@ -106,6 +106,8 @@ class Settings:
     EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "smtp").strip().lower()
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "").strip()
     SENDGRID_API_KEY: str = os.getenv("SENDGRID_API_KEY", "").strip()
+    TWO_FACTOR_TOKEN_EXPIRE_MINUTES: int = _get_positive_int("TWO_FACTOR_TOKEN_EXPIRE_MINUTES", "5")
+    TWO_FACTOR_SETUP_EXPIRE_MINUTES: int = _get_positive_int("TWO_FACTOR_SETUP_EXPIRE_MINUTES", "15")
 
 
 settings = Settings()

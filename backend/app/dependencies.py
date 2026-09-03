@@ -22,7 +22,7 @@ async def get_current_user_from_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
 
     user_id = payload.get("sub")
-    if not user_id or payload.get("type") == "admin":
+    if not user_id or payload.get("type") == "admin" or payload.get("purpose"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication credentials.")
 
     try:
@@ -37,6 +37,7 @@ async def get_current_user_from_token(token: str) -> dict[str, Any]:
         "id": str(user["_id"]),
         "name": user["name"],
         "email": user["email"],
+        "two_factor_enabled": bool(user.get("two_factor_enabled", False)),
     }
 
 

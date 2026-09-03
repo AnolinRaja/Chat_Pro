@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Union
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -20,11 +21,26 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class LoginSuccessResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    requires_2sv: bool = False
+
+
+class TwoFactorChallengeResponse(BaseModel):
+    requires_2sv: bool = True
+    two_factor_token: str
+    message: str = "Two-Step Verification required."
+
+
 class OtpRequiredResponse(BaseModel):
     requires_otp: bool = True
     email: EmailStr
     purpose: str
     message: str
+
+
+LoginResponse = Union[LoginSuccessResponse, TwoFactorChallengeResponse, OtpRequiredResponse]
 
 
 class RegistrationResponse(BaseModel):
@@ -72,3 +88,32 @@ class UserPublic(BaseModel):
     id: str
     name: str
     email: str
+    two_factor_enabled: bool = False
+
+
+class TwoFactorLoginRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    two_factor_token: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=1)
+
+
+class TwoFactorSetupResponse(BaseModel):
+    secret: str
+    otpauth_uri: str
+    recovery_codes: list[str]
+
+
+class TwoFactorConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(..., min_length=1)
+
+
+class TwoFactorDisableRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    password: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=1)
+
+
+class TwoFactorStatusResponse(BaseModel):
+    two_factor_enabled: bool
+    recovery_codes_remaining: int

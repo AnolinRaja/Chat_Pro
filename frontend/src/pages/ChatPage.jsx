@@ -463,7 +463,7 @@ function ChatPage() {
           isOpen={isRequestsModalOpen}
           requests={requests}
           memberships={memberships}
-          isLoading={isRefreshingOrgs}
+          isLoading={isRefreshingOrgs || isLoadingOrgs}
           error={orgError}
           onClose={() => setIsRequestsModalOpen(false)}
           onRefresh={() => refreshOrganizations(true).catch(() => {})}

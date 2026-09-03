@@ -68,19 +68,85 @@ function ForgotPasswordPage() {
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-5 py-12 sm:px-8">
-      <AuthCard eyebrow="Account recovery" title={step === 'complete' ? 'Password reset complete' : 'Forgot your password?'} description={step === 'complete' ? 'Your password has been updated.' : 'Enter your email to begin secure account recovery.'}>
+    <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-4 py-8 sm:px-8 sm:py-12">
+      <AuthCard
+        eyebrow="Account recovery"
+        title={step === 'complete' ? 'Password reset complete' : 'Forgot your password?'}
+        description={step === 'complete' ? 'Your password has been updated.' : 'Enter your email to begin secure account recovery.'}
+      >
         {step === 'otp' && <OtpVerification email={email} onVerify={handleVerify} onResend={() => requestPasswordReset(email)} />}
-        {step === 'password' && <form className="mt-7 space-y-5" onSubmit={handleReset} noValidate><FormMessage>{error}</FormMessage><label className="block text-sm font-medium">New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label><label className="block text-sm font-medium">Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label><button disabled={isSubmitting} type="submit" className="w-full rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Updating...' : 'Set new password'}</button></form>}
-        {step === 'complete' && <p className="mt-7 text-center text-sm text-[#60736e]"><Link to="/login" className="font-semibold text-[#0f766e] hover:underline">Return to sign in</Link></p>}
-        {step === 'email' && <>
-        <form className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
-          <FormMessage>{error}</FormMessage>
-          <label className="block text-sm font-medium">Email<input name="email" type="email" value={email} onChange={(event) => { setEmail(event.target.value); setError('') }} autoComplete="email" placeholder="you@example.com" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label>
-          <button disabled={isSubmitting} type="submit" className="w-full rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Sending...' : 'Continue'}</button>
-        </form>
-        <p className="mt-6 text-center text-sm text-[#60736e]"><Link to="/login" className="font-semibold text-[#0f766e] hover:underline">Return to sign in</Link></p>
-        </>}
+        {step === 'password' && (
+          <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleReset} noValidate>
+            <FormMessage>{error}</FormMessage>
+            <label className="block text-sm font-medium text-[#172321]">
+              New password
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              />
+            </label>
+            <label className="block text-sm font-medium text-[#172321]">
+              Confirm password
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                placeholder="Repeat password"
+                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              />
+            </label>
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+            >
+              {isSubmitting ? 'Updating...' : 'Set new password'}
+            </button>
+          </form>
+        )}
+        {step === 'complete' && (
+          <p className="mt-5 sm:mt-7 text-center text-xs sm:text-sm text-[#60736e]">
+            <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+              Return to sign in
+            </Link>
+          </p>
+        )}
+        {step === 'email' && (
+          <>
+            <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleSubmit} noValidate>
+              <FormMessage>{error}</FormMessage>
+              <label className="block text-sm font-medium text-[#172321]">
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => { setEmail(event.target.value); setError('') }}
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                />
+              </label>
+              <button
+                disabled={isSubmitting}
+                type="submit"
+                className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+              >
+                {isSubmitting ? 'Sending...' : 'Continue'}
+              </button>
+            </form>
+            <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-[#60736e]">
+              <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+                Return to sign in
+              </Link>
+            </p>
+          </>
+        )}
       </AuthCard>
     </section>
   )

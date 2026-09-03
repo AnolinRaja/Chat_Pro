@@ -11,12 +11,12 @@ function ChannelList({
   return (
     <div className="flex flex-col h-full">
       {/* Organization Header */}
-      <div className="border-b border-[#dbe5e1] px-5 py-4 bg-white/50">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold text-base text-[#172321] truncate">
+      <div className="border-b border-[#dbe5e1] px-3.5 sm:px-5 py-3 sm:py-4 bg-white/50">
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <h2 className="font-semibold text-sm sm:text-base text-[#172321] truncate">
             {organization?.organization_name || 'Organization'}
           </h2>
-          <span className="shrink-0 rounded-full bg-[#e3efe9] px-2.5 py-0.5 text-xs font-semibold text-[#0f766e] uppercase tracking-wider">
+          <span className="shrink-0 rounded-full bg-[#e3efe9] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#0f766e] uppercase tracking-wider">
             {organization?.role || 'member'}
           </span>
         </div>
@@ -26,8 +26,8 @@ function ChannelList({
       </div>
 
       {/* Channels Section Header */}
-      <div className="flex items-center justify-between px-5 py-3.5">
-        <span className="text-xs font-bold uppercase tracking-[0.16em] text-[#60736e]">
+      <div className="flex items-center justify-between px-3.5 sm:px-5 py-2.5 sm:py-3.5">
+        <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#60736e]">
           Channels ({channels.length})
         </span>
         <button

@@ -10,6 +10,11 @@
   -webkit-font-smoothing: antialiased;
 }
 
-body { margin: 0; min-width: 320px; }
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
 h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
-button, input { font: inherit; }
+button, input, textarea, select { font: inherit; }

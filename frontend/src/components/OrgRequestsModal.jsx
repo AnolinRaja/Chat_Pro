@@ -78,45 +78,45 @@ function OrgRequestsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#172321]/30 p-0 sm:items-center sm:p-6"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#172321]/30 p-0 sm:p-6 backdrop-blur-xs"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl border border-[#dbe5e1] overflow-hidden"
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-[#dbe5e1] bg-white shadow-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="org-requests-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#dbe5e1] px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 id="org-requests-title" className="text-lg font-semibold text-[#172321]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#dbe5e1] px-4 py-3.5 sm:px-6 sm:py-4 bg-white">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 id="org-requests-title" className="text-base sm:text-lg font-semibold text-[#172321] truncate">
                   Organization Requests
                 </h2>
                 {pendingCount > 0 && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-amber-800">
                     {pendingCount} pending
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#60736e]">
+              <p className="text-[11px] sm:text-xs text-[#60736e] truncate">
                 Status of your organization membership requests
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={onRefresh}
               disabled={isLoading}
               title="Refresh requests"
               aria-label="Refresh requests"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#d2e0dc] bg-white px-2.5 py-1.5 text-xs font-medium text-[#48615c] transition hover:bg-[#edf5f2] disabled:opacity-50"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-[#d2e0dc] bg-white px-2.5 py-1.5 text-xs font-medium text-[#48615c] transition hover:bg-[#edf5f2] disabled:opacity-50"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -134,21 +134,21 @@ function OrgRequestsModal({
                 <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
                 <path d="M16 21h5v-5" />
               </svg>
-              <span>{isLoading ? 'Refreshing...' : 'Refresh'}</span>
+              <span className="hidden xs:inline sm:inline">{isLoading ? 'Refreshing...' : 'Refresh'}</span>
             </button>
             <button
               type="button"
               onClick={onClose}
               aria-label="Close organization requests dialog"
-              className="rounded-lg px-2.5 py-1 text-xl leading-none text-[#60736e] hover:bg-[#edf5f2]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-[#60736e] hover:bg-[#edf5f2]"
             >
-              x
+              ✕
             </button>
           </div>
         </div>
 
         {/* Body Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 space-y-3">
           {error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
               <p className="font-semibold">Unable to load requests</p>
@@ -157,7 +157,7 @@ function OrgRequestsModal({
           )}
 
           {requests.length === 0 ? (
-            <div className="py-10 text-center">
+            <div className="py-8 sm:py-10 text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#edf5f2] text-xl text-[#0f766e]">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -184,7 +184,7 @@ function OrgRequestsModal({
                 <button
                   type="button"
                   onClick={onOpenJoinOrg}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0b5f59]"
+                  className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0b5f59]"
                 >
                   + Join an Organization
                 </button>
@@ -203,9 +203,9 @@ function OrgRequestsModal({
               return (
                 <div
                   key={req.id}
-                  className="rounded-xl border border-[#dbe5e1] bg-[#fbfcfc] p-4 transition-all hover:border-[#b8cfc8] hover:bg-white"
+                  className="rounded-xl border border-[#dbe5e1] bg-[#fbfcfc] p-3.5 sm:p-4 transition-all hover:border-[#b8cfc8] hover:bg-white"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-semibold text-sm text-[#172321] truncate">
@@ -226,7 +226,7 @@ function OrgRequestsModal({
                       </p>
                     </div>
 
-                    <div className="shrink-0 flex flex-col items-end gap-2">
+                    <div className="shrink-0 flex items-center sm:flex-col sm:items-end justify-between sm:justify-start gap-2 pt-1 sm:pt-0">
                       <StatusBadge status={req.status} />
 
                       {isApproved && matchingMembership && onSelectWorkspace && (
@@ -242,7 +242,7 @@ function OrgRequestsModal({
                   </div>
 
                   {/* Dates footer */}
-                  <div className="mt-3 flex items-center justify-between border-t border-[#edf2f0] pt-2 text-[11px] text-[#60736e]">
+                  <div className="mt-2.5 flex items-center justify-between border-t border-[#edf2f0] pt-2 text-[10px] sm:text-[11px] text-[#60736e]">
                     <span>Requested: {formatDate(req.created_at)}</span>
                     {req.updated_at && req.updated_at !== req.created_at && (
                       <span>Updated: {formatDate(req.updated_at)}</span>
@@ -255,14 +255,14 @@ function OrgRequestsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[#dbe5e1] bg-[#fbfcfc] px-6 py-3">
+        <div className="flex shrink-0 items-center justify-between border-t border-[#dbe5e1] bg-[#fbfcfc] px-4 py-3 sm:px-6">
           <span className="text-xs text-[#60736e]">
             {requests.length} request{requests.length === 1 ? '' : 's'} total
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-1.5 text-xs font-semibold text-[#60736e] hover:bg-[#edf5f2]"
+            className="flex min-h-[38px] items-center justify-center rounded-lg px-4 py-1.5 text-xs font-semibold text-[#60736e] hover:bg-[#edf5f2]"
           >
             Close
           </button>

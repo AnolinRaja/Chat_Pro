@@ -89,13 +89,13 @@ function OtpVerification({ email, onVerify, onResend, cooldownSeconds = DEFAULT_
 
   return (
     <div>
-      <p className="text-sm leading-6 text-[#60736e]">We&apos;ve sent a 6-digit verification code to</p>
+      <p className="text-xs sm:text-sm leading-6 text-[#60736e]">We&apos;ve sent a 6-digit verification code to</p>
       <p className="mt-1 truncate font-semibold text-[#172321]">{email}</p>
-      <form className="mt-6 space-y-5" onSubmit={handleVerify} noValidate>
+      <form className="mt-5 sm:mt-6 space-y-4 sm:space-y-5" onSubmit={handleVerify} noValidate>
         <FormMessage>{error}</FormMessage>
         <fieldset>
-          <legend className="mb-2 text-sm font-medium">Verification code</legend>
-          <div className="flex gap-2 sm:gap-3" onPaste={handlePaste}>
+          <legend className="mb-2 text-xs sm:text-sm font-medium text-[#172321]">Verification code</legend>
+          <div className="flex gap-1.5 sm:gap-3 justify-between" onPaste={handlePaste}>
             {digits.map((digit, index) => (
               <input
                 key={`otp-${index}`}
@@ -109,18 +109,27 @@ function OtpVerification({ email, onVerify, onResend, cooldownSeconds = DEFAULT_
                 onChange={(event) => updateDigit(index, event.target.value)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
                 autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                className="h-12 min-w-0 flex-1 rounded-lg border border-[#cddbd6] text-center text-lg font-semibold outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                className="h-11 sm:h-12 min-w-0 flex-1 max-w-12 rounded-lg border border-[#cddbd6] text-center text-base sm:text-lg font-bold font-mono outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
               />
             ))}
           </div>
         </fieldset>
-        <button disabled={isVerifying} type="submit" className="w-full rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-60">
+        <button
+          disabled={isVerifying}
+          type="submit"
+          className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+        >
           {isVerifying ? 'Verifying...' : 'Verify code'}
         </button>
       </form>
-      <div className="mt-5 text-center text-sm text-[#60736e]">
+      <div className="mt-5 text-center text-xs sm:text-sm text-[#60736e]">
         <p>Didn&apos;t receive the code?</p>
-        <button type="button" disabled={remainingSeconds > 0 || isResending} onClick={handleResend} className="mt-1 font-semibold text-[#0f766e] hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50">
+        <button
+          type="button"
+          disabled={remainingSeconds > 0 || isResending}
+          onClick={handleResend}
+          className="mt-1 inline-flex min-h-[36px] items-center justify-center font-semibold text-[#0f766e] hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50"
+        >
           {isResending ? 'Sending...' : 'Resend OTP'}
         </button>
         {remainingSeconds > 0 && <p className="mt-1 text-xs">Resend available in {remainingSeconds} seconds</p>}

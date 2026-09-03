@@ -36,20 +36,77 @@ function RegisterPage() {
   }
 
   if (verificationEmail) {
-    return <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-5 py-12 sm:px-8"><AuthCard eyebrow="Verify your account" title="Verify your email" description="Confirm your email to finish creating your ChatPRO account."><OtpVerification email={verificationEmail} onVerify={async (otp) => { await verifyRegistration(verificationEmail, otp); navigate('/login', { replace: true }) }} onResend={() => resendRegistration(verificationEmail)} /></AuthCard></section>
+    return (
+      <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-4 py-8 sm:px-8 sm:py-12">
+        <AuthCard eyebrow="Verify your account" title="Verify your email" description="Confirm your email to finish creating your ChatPRO account.">
+          <OtpVerification
+            email={verificationEmail}
+            onVerify={async (otp) => {
+              await verifyRegistration(verificationEmail, otp)
+              navigate('/login', { replace: true })
+            }}
+            onResend={() => resendRegistration(verificationEmail)}
+          />
+        </AuthCard>
+      </section>
+    )
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-5 py-12 sm:px-8">
+    <section className="mx-auto flex min-h-[calc(100vh-73px)] max-w-xl items-center px-4 py-8 sm:px-8 sm:py-12">
       <AuthCard eyebrow="Start a new chapter" title="Create your ChatPRO account" description="A simple home for your everyday conversations.">
-        <form className="mt-7 space-y-5" onSubmit={handleSubmit} noValidate>
+        <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleSubmit} noValidate>
           <FormMessage>{error}</FormMessage>
-          <label className="block text-sm font-medium">Name<input name="name" type="text" value={form.name} onChange={updateField} autoComplete="name" placeholder="Your name" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label>
-          <label className="block text-sm font-medium">Email<input name="email" type="email" value={form.email} onChange={updateField} autoComplete="email" placeholder="you@example.com" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label>
-          <label className="block text-sm font-medium">Password<input name="password" type="password" value={form.password} onChange={updateField} autoComplete="new-password" placeholder="At least 8 characters" className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-3 outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]" /></label>
-          <button disabled={isSubmitting} type="submit" className="w-full rounded-lg bg-[#172321] px-4 py-3 font-semibold text-white hover:bg-[#2d413c] disabled:cursor-not-allowed disabled:opacity-60">{isSubmitting ? 'Creating account...' : 'Create account'}</button>
+          <label className="block text-sm font-medium text-[#172321]">
+            Name
+            <input
+              name="name"
+              type="text"
+              value={form.name}
+              onChange={updateField}
+              autoComplete="name"
+              placeholder="Your name"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#172321]">
+            Email
+            <input
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={updateField}
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+            />
+          </label>
+          <label className="block text-sm font-medium text-[#172321]">
+            Password
+            <input
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={updateField}
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+            />
+          </label>
+          <button
+            disabled={isSubmitting}
+            type="submit"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#172321] px-4 py-3 font-semibold text-white hover:bg-[#2d413c] active:bg-[#121c1a] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+          >
+            {isSubmitting ? 'Creating account...' : 'Create account'}
+          </button>
         </form>
-        <p className="mt-6 text-center text-sm text-[#60736e]">Already have an account? <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">Sign in</Link></p>
+        <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-[#60736e]">
+          Already have an account?{' '}
+          <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+            Sign in
+          </Link>
+        </p>
       </AuthCard>
     </section>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ChannelList from '../components/ChannelList.jsx'
 import ConversationList from '../components/ConversationList.jsx'
 import CreateChannelModal from '../components/CreateChannelModal.jsx'
@@ -12,6 +12,7 @@ import { useAuth } from '../context/useAuth.js'
 import { useConversationSocket } from '../hooks/useConversationSocket.js'
 import { createConversation, getConversations, getMessages, sendMessage } from '../services/conversationService.js'
 import { getMyOrganizations, getOrgConversations } from '../services/organizationService.js'
+import { getSavedChatContext, saveChatContext } from '../utils/chatSessionStorage.js'
 
 function formatError(error, fallback) {
   if (!error.response) return 'The backend is unavailable. Check that it is running and try again.'
@@ -29,6 +30,7 @@ function mergeMessage(messages, message) {
 
 function ChatPage() {
   const { user } = useAuth()
+  const savedContextRef = useRef(getSavedChatContext(user?.id))
 
   // Workspace & Organizations
   const [memberships, setMemberships] = useState([])
@@ -92,8 +94,27 @@ function ChatPage() {
     getMyOrganizations()
       .then((result) => {
         if (active) {
-          setMemberships(result.memberships || [])
+          const fetchedMemberships = result.memberships || []
+          setMemberships(fetchedMemberships)
           setRequests(result.requests || [])
+
+          // Restore saved organization if valid
+          const targetOrgId = savedContextRef.current.organizationId
+          if (targetOrgId) {
+            const matchingOrg = fetchedMemberships.find(
+              (m) => m.organization_id === targetOrgId || m.org_id === targetOrgId
+            )
+            if (matchingOrg) {
+              setActiveWorkspace(matchingOrg)
+            } else {
+              // Stale organization is no longer accessible
+              savedContextRef.current.organizationId = null
+              savedContextRef.current.conversationId = null
+              if (user?.id) {
+                saveChatContext(user.id, { organizationId: null, conversationId: null })
+              }
+            }
+          }
         }
       })
       .catch((error) => {
@@ -103,7 +124,7 @@ function ChatPage() {
         if (active) setIsLoadingOrgs(false)
       })
     return () => { active = false }
-  }, [])
+  }, [user?.id])
 
   // Load DM conversations on mount
   useEffect(() => {
@@ -112,7 +133,23 @@ function ChatPage() {
       try {
         setIsLoadingConversations(true)
         const result = await getConversations()
-        if (active) setConversations(result)
+        if (active) {
+          setConversations(result)
+          // If on Direct Messages workspace, restore saved DM conversation if valid
+          if (!savedContextRef.current.organizationId && savedContextRef.current.conversationId) {
+            const matchingConv = result.find((c) => c.id === savedContextRef.current.conversationId)
+            if (matchingConv) {
+              setSelectedConversation(matchingConv)
+              savedContextRef.current.conversationId = null
+            } else {
+              // Stale DM conversation
+              savedContextRef.current.conversationId = null
+              if (user?.id) {
+                saveChatContext(user.id, { organizationId: null, conversationId: null })
+              }
+            }
+          }
+        }
       } catch (error) {
         if (active) setConversationError(formatError(error, 'Unable to load conversations.'))
       } finally {
@@ -121,7 +158,7 @@ function ChatPage() {
     }
     loadConversations()
     return () => { active = false }
-  }, [])
+  }, [user?.id])
 
   // Load channels when an organization workspace is active
   useEffect(() => {
@@ -139,12 +176,33 @@ function ChatPage() {
         const result = await getOrgConversations(activeWorkspace.organization_id)
         if (active) {
           setChannels(result)
-          // Auto-select general or first channel if available
-          if (result.length > 0) {
+          // Restore saved channel if matching this organization
+          const targetConvId = savedContextRef.current.conversationId
+          const matchingChannel = targetConvId ? result.find((c) => c.id === targetConvId) : null
+
+          if (matchingChannel) {
+            setSelectedConversation(matchingChannel)
+            savedContextRef.current.conversationId = null
+          } else if (result.length > 0) {
+            // Auto-select general or first channel if available
             const general = result.find((c) => c.name === 'general') || result[0]
             setSelectedConversation(general)
+            if (user?.id) {
+              saveChatContext(user.id, {
+                organizationId: activeWorkspace.organization_id,
+                conversationId: general?.id || null,
+              })
+            }
+            savedContextRef.current.conversationId = null
           } else {
             setSelectedConversation(null)
+            if (user?.id) {
+              saveChatContext(user.id, {
+                organizationId: activeWorkspace.organization_id,
+                conversationId: null,
+              })
+            }
+            savedContextRef.current.conversationId = null
           }
         }
       } catch (error) {
@@ -156,7 +214,7 @@ function ChatPage() {
 
     loadChannels()
     return () => { active = false }
-  }, [activeWorkspace])
+  }, [activeWorkspace, user?.id])
 
   // Load message history when selected conversation changes
   useEffect(() => {
@@ -244,6 +302,23 @@ function ChatPage() {
     setSelectedConversation(null)
     setMessages([])
     setMessageError('')
+    if (user?.id) {
+      saveChatContext(user.id, {
+        organizationId: workspace?.organization_id || null,
+        conversationId: null,
+      })
+    }
+  }
+
+  // Conversation selection
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation)
+    if (user?.id) {
+      saveChatContext(user.id, {
+        organizationId: activeWorkspace?.organization_id || null,
+        conversationId: conversation?.id || null,
+      })
+    }
   }
 
   // DM User selection
@@ -261,6 +336,12 @@ function ChatPage() {
       setConversations(refreshedConversations)
       const refreshedConversation = refreshedConversations.find((item) => item.id === conversation.id) || conversation
       setSelectedConversation(refreshedConversation)
+      if (user?.id) {
+        saveChatContext(user.id, {
+          organizationId: null,
+          conversationId: refreshedConversation?.id || null,
+        })
+      }
       setIsNewChatOpen(false)
     } catch (error) {
       setConversationError(error.message || formatError(error, 'Unable to create conversation.'))
@@ -281,7 +362,7 @@ function ChatPage() {
         (m) => m.organization_id === result.organization_id || m.org_id === result.org_id
       )
       if (targetOrg) {
-        setActiveWorkspace(targetOrg)
+        handleSelectWorkspace(targetOrg)
       }
     } catch {
       // Ignored, user can retry
@@ -309,9 +390,21 @@ function ChatPage() {
       const updatedChannels = await getOrgConversations(activeWorkspace.organization_id)
       setChannels(updatedChannels)
       setSelectedConversation(newChannel)
+      if (user?.id) {
+        saveChatContext(user.id, {
+          organizationId: activeWorkspace.organization_id,
+          conversationId: newChannel?.id || null,
+        })
+      }
     } catch {
       setChannels((prev) => [...prev, newChannel])
       setSelectedConversation(newChannel)
+      if (user?.id) {
+        saveChatContext(user.id, {
+          organizationId: activeWorkspace.organization_id,
+          conversationId: newChannel?.id || null,
+        })
+      }
     }
   }
 
@@ -363,7 +456,7 @@ function ChatPage() {
               <ConversationList
                 conversations={conversations}
                 selectedId={selectedConversation?.id}
-                onSelect={setSelectedConversation}
+                onSelect={handleSelectConversation}
                 isLoading={isLoadingConversations}
                 error={conversationError}
               />
@@ -375,7 +468,7 @@ function ChatPage() {
             organization={activeWorkspace}
             channels={channels}
             selectedId={selectedConversation?.id}
-            onSelect={setSelectedConversation}
+            onSelect={handleSelectConversation}
             isLoading={isLoadingChannels}
             error={channelError}
             onOpenCreateChannel={() => setIsCreateChannelOpen(true)}
@@ -401,7 +494,7 @@ function ChatPage() {
                 {/* Back button on mobile */}
                 <button
                   type="button"
-                  onClick={() => setSelectedConversation(null)}
+                  onClick={() => handleSelectConversation(null)}
                   className="sm:hidden -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#60736e] hover:bg-[#edf5f2] active:bg-[#d9f0eb]"
                   aria-label="Back to conversations"
                 >

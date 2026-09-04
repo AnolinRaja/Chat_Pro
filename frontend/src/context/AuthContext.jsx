@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api, { clearAccessToken, setAccessToken } from '../services/api.js'
+import { clearSavedChatContext } from '../utils/chatSessionStorage.js'
 import authContextValue from './authContextValue.js'
 
 function getErrorMessage(error, fallback) {
@@ -81,6 +82,9 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      if (user?.id) {
+        clearSavedChatContext(user.id)
+      }
       await api.post('/auth/logout')
     } catch (error) {
       console.error('Failed to log out on backend:', error)
@@ -91,11 +95,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const handleAuthLogout = () => {
+      if (user?.id) {
+        clearSavedChatContext(user.id)
+      }
       clearSession()
     }
     window.addEventListener('auth:logout', handleAuthLogout)
     return () => window.removeEventListener('auth:logout', handleAuthLogout)
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
     let active = true

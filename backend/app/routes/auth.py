@@ -283,9 +283,17 @@ def refresh_session(response: Response, refresh_token: str | None = Cookie(None)
 
     access_token = JWTService.create_access_token(user_id)
 
+    user_public = {
+        "id": str(user["_id"]),
+        "name": user.get("name", ""),
+        "email": user.get("email", ""),
+        "two_factor_enabled": user.get("two_factor_enabled", False),
+    }
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
+        "user": user_public,
     }
 
 

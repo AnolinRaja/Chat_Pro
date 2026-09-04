@@ -8,22 +8,77 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 
-function AppLoadingScreen() {
+function ChatShellSkeleton() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f7f6] text-[#172321]">
-      <div className="flex flex-col items-center gap-4">
-        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0f766e] text-xl font-bold text-white shadow-md animate-pulse">
-          C
+    <section className="mx-auto flex h-[calc(100dvh-57px)] sm:h-[calc(100vh-73px)] max-w-7xl overflow-hidden bg-white shadow-[0_18px_50px_rgba(25,60,52,0.08)] lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-2xl lg:border lg:border-[#dbe5e1]">
+      {/* Workspace Rail Skeleton */}
+      <div className="flex w-14 sm:w-16 shrink-0 flex-col items-center border-r border-[#dbe5e1] bg-[#edf3f1] py-3 sm:py-4 gap-2 sm:gap-2.5">
+        <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-[#d2e0dc] animate-pulse" />
+        <div className="h-px w-6 sm:w-8 bg-[#cddbd6] my-0.5" />
+        <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-[#d2e0dc] animate-pulse" />
+        <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-[#d2e0dc] animate-pulse" />
+      </div>
+
+      {/* Sidebar Skeleton */}
+      <div className="w-full sm:max-w-sm shrink-0 flex flex-col border-r border-[#dbe5e1] bg-[#fbfcfc]">
+        <div className="border-b border-[#dbe5e1] px-3.5 sm:px-5 py-3.5 sm:py-5">
+          <div className="h-3 w-20 rounded bg-[#cddbd6] animate-pulse" />
+          <div className="mt-2 h-5 w-32 rounded bg-[#dbe5e1] animate-pulse" />
+          <div className="mt-1 h-3 w-40 rounded bg-[#e8efed] animate-pulse" />
         </div>
-        <div className="flex items-center gap-2 text-sm font-medium text-[#60736e]">
-          <svg className="h-4 w-4 animate-spin text-[#0f766e]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span>Restoring your session...</span>
+        <div className="flex items-center justify-between px-3.5 sm:px-5 py-3 sm:py-4">
+          <div className="h-4 w-28 rounded bg-[#cddbd6] animate-pulse" />
+          <div className="h-7 w-20 rounded-lg bg-[#dbe5e1] animate-pulse" />
+        </div>
+        <div className="flex-1 px-3 space-y-2 py-2">
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#edf3f1] animate-pulse">
+            <div className="h-10 w-10 rounded-full bg-[#dbe5e1]" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-3/4 rounded bg-[#dbe5e1]" />
+              <div className="h-2.5 w-1/2 rounded bg-[#edf3f1]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#edf3f1] animate-pulse">
+            <div className="h-10 w-10 rounded-full bg-[#dbe5e1]" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-2/3 rounded bg-[#dbe5e1]" />
+              <div className="h-2.5 w-1/3 rounded bg-[#edf3f1]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#edf3f1] animate-pulse">
+            <div className="h-10 w-10 rounded-full bg-[#dbe5e1]" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-1/2 rounded bg-[#dbe5e1]" />
+              <div className="h-2.5 w-1/4 rounded bg-[#edf3f1]" />
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Main Chat Area Skeleton */}
+      <div className="min-w-0 flex-1 hidden sm:flex flex-col bg-[#eef4f2]">
+        <div className="flex items-center justify-between border-b border-[#dbe5e1] bg-white px-3.5 py-3 sm:px-8 sm:py-4">
+          <div className="space-y-1.5">
+            <div className="h-4 w-36 rounded bg-[#dbe5e1] animate-pulse" />
+            <div className="h-3 w-24 rounded bg-[#edf3f1] animate-pulse" />
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col justify-end gap-3 p-4 sm:p-8">
+          <div className="flex justify-start">
+            <div className="h-12 w-48 rounded-2xl rounded-bl-sm bg-white border border-[#e2ece9] animate-pulse" />
+          </div>
+          <div className="flex justify-end">
+            <div className="h-10 w-40 rounded-2xl rounded-br-sm bg-[#cde8e3] animate-pulse" />
+          </div>
+          <div className="flex justify-start">
+            <div className="h-14 w-64 rounded-2xl rounded-bl-sm bg-white border border-[#e2ece9] animate-pulse" />
+          </div>
+        </div>
+        <div className="border-t border-[#dbe5e1] bg-white p-2.5 sm:p-4">
+          <div className="h-11 rounded-xl bg-[#edf3f1] animate-pulse" />
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -32,14 +87,14 @@ function ProtectedRoute({ children }) {
   const location = useLocation()
 
   if (isLoading) {
-    return <AppLoadingScreen />
+    return <ChatShellSkeleton />
   }
 
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />
 }
 
 function AppShell({ children }) {
-  const { user, logout } = useAuth()
+  const { user, isLoading, logout } = useAuth()
   const [isSecurityOpen, setIsSecurityOpen] = useState(false)
 
   return (
@@ -52,7 +107,9 @@ function AppShell({ children }) {
           </Link>
           <nav className="flex items-center gap-1.5 sm:gap-2 text-sm font-medium" aria-label="Primary navigation">
             <InstallPwaButton />
-            {user ? (
+            {isLoading ? (
+              <div className="h-8 w-20 rounded-lg bg-[#edf3f1] animate-pulse" />
+            ) : user ? (
               <>
                 <button
                   type="button"
@@ -92,17 +149,13 @@ function AppShell({ children }) {
 function App() {
   const { user, isLoading } = useAuth()
 
-  if (isLoading) {
-    return <AppLoadingScreen />
-  }
-
   return (
     <AppShell>
       <Routes>
         <Route path="/" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
-        <Route path="/login" element={user ? <Navigate to="/chat" replace /> : <LoginPage />} />
-        <Route path="/forgot-password" element={user ? <Navigate to="/chat" replace /> : <ForgotPasswordPage />} />
-        <Route path="/register" element={user ? <Navigate to="/chat" replace /> : <RegisterPage />} />
+        <Route path="/login" element={!isLoading && user ? <Navigate to="/chat" replace /> : <LoginPage />} />
+        <Route path="/forgot-password" element={!isLoading && user ? <Navigate to="/chat" replace /> : <ForgotPasswordPage />} />
+        <Route path="/register" element={!isLoading && user ? <Navigate to="/chat" replace /> : <RegisterPage />} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
       </Routes>

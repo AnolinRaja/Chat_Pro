@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Union
 
@@ -19,6 +21,7 @@ class UserLogin(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: UserPublic | None = None
 
 
 class LoginSuccessResponse(BaseModel):

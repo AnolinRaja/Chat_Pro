@@ -176,8 +176,17 @@ def test_refresh_endpoint_success():
     response = client.post("/auth/refresh")
     
     assert response.status_code == 200
-    assert "access_token" in response.json()
-    assert "refresh_token" not in response.json()
+    data = response.json()
+    assert "access_token" in data
+    assert "refresh_token" not in data
+    assert "user" in data
+    assert data["user"]["email"] == TEST_EMAIL
+    assert data["user"]["name"] == "Session User"
+    assert "two_factor_enabled" in data["user"]
+    # Ensure NO sensitive fields are leaked
+    assert "password_hash" not in data["user"]
+    assert "two_factor_secret" not in data["user"]
+    assert "recovery_codes_hash" not in data["user"]
     
     # Assert cookie is rotated
     assert response.cookies["refresh_token"] != res_login.cookies["refresh_token"]
@@ -247,7 +256,7 @@ def test_refresh_with_revoked_session_fails_401():
 
 
 def test_startup_session_restoration_lifecycle():
-    """Simulates startup session restoration via HttpOnly cookie followed by /auth/me."""
+    """Simulates startup session restoration via HttpOnly cookie returning token + sanitized user in single roundtrip."""
     register_and_verify_user()
 
     # User logs in and receives refresh_token cookie
@@ -259,13 +268,17 @@ def test_startup_session_restoration_lifecycle():
     client.cookies.clear()
     client.cookies.set("refresh_token", cookie)
 
-    # App startup calls /auth/refresh
+    # App startup calls /auth/refresh — returns access token AND sanitized user profile directly
     refresh_res = client.post("/auth/refresh")
     assert refresh_res.status_code == 200
-    new_access_token = refresh_res.json()["access_token"]
+    refresh_data = refresh_res.json()
+    new_access_token = refresh_data["access_token"]
     assert new_access_token is not None
+    assert refresh_data["user"] is not None
+    assert refresh_data["user"]["email"] == TEST_EMAIL
+    assert refresh_data["user"]["name"] == "Session User"
 
-    # App uses new access token to fetch current user profile
+    # Optional /auth/me backward-compatible verification
     me_res = client.get("/auth/me", headers={"Authorization": f"Bearer {new_access_token}"})
     assert me_res.status_code == 200
     me_data = me_res.json()

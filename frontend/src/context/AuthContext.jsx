@@ -106,12 +106,17 @@ export function AuthProvider({ children }) {
         const refreshRes = await api.post('/auth/refresh')
         if (!active) return
 
-        const { access_token } = refreshRes.data
+        const { access_token, user: userProfile } = refreshRes.data
         if (access_token) {
           setAccessToken(access_token)
-          const meRes = await api.get('/auth/me')
-          if (active) {
-            setUser(meRes.data)
+          if (userProfile) {
+            setUser(userProfile)
+          } else {
+            // Defensive backward-compatibility fallback only
+            const meRes = await api.get('/auth/me')
+            if (active) {
+              setUser(meRes.data)
+            }
           }
         } else {
           clearSession()

@@ -166,9 +166,16 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
 
             encoded_message = jsonable_encoder(saved_message)
             await websocket.send_json({"type": "message_ack", "data": encoded_message})
+            broadcast_event = {
+                "type": "message.created",
+                "conversation_id": conversation_id,
+                "message": encoded_message,
+                # Backward-compatible data field for legacy listeners
+                "data": encoded_message,
+            }
             await connection_manager.broadcast(
                 conversation_id,
-                {"type": "message", "data": encoded_message},
+                broadcast_event,
             )
     except WebSocketDisconnect:
         logger.info(
@@ -327,9 +334,18 @@ def list_organization_conversations(
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
-def send_message(conversation_id: str, payload: MessageCreate, current_user: dict = Depends(get_current_user)):
+async def send_message(conversation_id: str, payload: MessageCreate, current_user: dict = Depends(get_current_user)):
     try:
-        return MessageService.send_message(conversation_id, current_user["id"], payload.content)
+        saved_message = MessageService.send_message(conversation_id, current_user["id"], payload.content)
+        encoded_message = jsonable_encoder(saved_message)
+        broadcast_event = {
+            "type": "message.created",
+            "conversation_id": conversation_id,
+            "message": encoded_message,
+            "data": encoded_message,
+        }
+        await connection_manager.broadcast(conversation_id, broadcast_event)
+        return saved_message
     except HTTPException:
         raise
     except Exception:

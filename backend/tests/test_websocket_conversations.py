@@ -181,13 +181,13 @@ def test_authenticated_user_can_send_websocket_message():
 
         assert acknowledgement["type"] == "message_ack"
         assert acknowledgement["data"]["content"] == "Hello User B!"
-        assert message_one["type"] == "message"
-        assert message_two["type"] == "message"
-        assert message_one["data"]["content"] == "Hello User B!"
-        assert message_two["data"]["content"] == "Hello User B!"
-        assert message_one["data"]["conversation_id"] == conv_id
-        assert message_two["data"]["conversation_id"] == conv_id
-        assert message_one["data"]["id"] == acknowledgement["data"]["id"]
+        assert message_one["type"] == "message.created"
+        assert message_two["type"] == "message.created"
+        assert message_one["conversation_id"] == conv_id
+        assert message_two["conversation_id"] == conv_id
+        assert message_one["message"]["content"] == "Hello User B!"
+        assert message_two["message"]["content"] == "Hello User B!"
+        assert message_one["message"]["id"] == acknowledgement["data"]["id"]
         assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 1
 
 
@@ -243,7 +243,9 @@ def test_websocket_ack_contains_persisted_message_fields():
         assert set(saved_message) == {"id", "conversation_id", "sender_id", "content", "created_at"}
         assert saved_message["conversation_id"] == conv_id
         assert saved_message["content"] == "Acknowledged message"
-        assert broadcast == {"type": "message", "data": saved_message}
+        assert broadcast["type"] == "message.created"
+        assert broadcast["conversation_id"] == conv_id
+        assert broadcast["message"] == saved_message
 
 
 def test_websocket_missing_content_returns_error_without_persisting():
@@ -294,11 +296,11 @@ def test_sequential_websocket_messages_preserve_order_and_persist_each_message()
 
             assert acknowledgement["type"] == "message_ack"
             assert acknowledgement["data"]["content"] == content
-            assert sender_message["type"] == "message"
-            assert recipient_message["type"] == "message"
-            assert sender_message["data"]["content"] == content
-            assert recipient_message["data"]["content"] == content
-            assert sender_message["data"]["id"] == acknowledgement["data"]["id"]
+            assert sender_message["type"] == "message.created"
+            assert recipient_message["type"] == "message.created"
+            assert sender_message["message"]["content"] == content
+            assert recipient_message["message"]["content"] == content
+            assert sender_message["message"]["id"] == acknowledgement["data"]["id"]
 
     stored_messages = list(
         db.get_db()["messages"].find({"conversation_id": ObjectId(conv_id)}).sort("created_at", 1)
@@ -333,10 +335,12 @@ def test_messages_are_isolated_between_conversations():
         conversation_a_sender_event = ws_a_one.receive_json()
         conversation_a_recipient_event = ws_a_two.receive_json()
 
-        assert conversation_a_sender_event["type"] == "message"
-        assert conversation_a_recipient_event["type"] == "message"
-        assert conversation_a_sender_event["data"]["content"] == "Conversation A message"
-        assert conversation_a_recipient_event["data"]["content"] == "Conversation A message"
+        assert conversation_a_sender_event["type"] == "message.created"
+        assert conversation_a_recipient_event["type"] == "message.created"
+        assert conversation_a_sender_event["message"]["content"] == "Conversation A message"
+        assert conversation_a_recipient_event["message"]["content"] == "Conversation A message"
+        assert conversation_a_sender_event["conversation_id"] == conversation_a
+        assert conversation_a_recipient_event["conversation_id"] == conversation_a
 
         ws_b_one.send_json({"content": "Conversation B message"})
         conversation_b_ack = ws_b_one.receive_json()
@@ -344,11 +348,13 @@ def test_messages_are_isolated_between_conversations():
         conversation_b_recipient_event = ws_b_two.receive_json()
 
         assert conversation_b_ack["type"] == "message_ack"
-        assert conversation_b_sender_event["type"] == "message"
-        assert conversation_b_recipient_event["type"] == "message"
+        assert conversation_b_sender_event["type"] == "message.created"
+        assert conversation_b_recipient_event["type"] == "message.created"
         assert conversation_b_ack["data"]["conversation_id"] == conversation_b
-        assert conversation_b_sender_event["data"]["content"] == "Conversation B message"
-        assert conversation_b_recipient_event["data"]["content"] == "Conversation B message"
+        assert conversation_b_sender_event["conversation_id"] == conversation_b
+        assert conversation_b_recipient_event["conversation_id"] == conversation_b
+        assert conversation_b_sender_event["message"]["content"] == "Conversation B message"
+        assert conversation_b_recipient_event["message"]["content"] == "Conversation B message"
 
 
 def test_connection_remains_usable_after_invalid_message_error():
@@ -379,11 +385,11 @@ def test_connection_remains_usable_after_invalid_message_error():
         recipient_event = ws_two.receive_json()
 
         assert acknowledgement["type"] == "message_ack"
-        assert sender_event["type"] == "message"
-        assert recipient_event["type"] == "message"
+        assert sender_event["type"] == "message.created"
+        assert recipient_event["type"] == "message.created"
         assert acknowledgement["data"]["content"] == "Valid after errors"
-        assert sender_event["data"]["content"] == "Valid after errors"
-        assert recipient_event["data"]["content"] == "Valid after errors"
+        assert sender_event["message"]["content"] == "Valid after errors"
+        assert recipient_event["message"]["content"] == "Valid after errors"
         assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conv_id)}) == 1
 
 
@@ -409,8 +415,8 @@ def test_disconnect_removes_one_participant_and_keeps_other_connected():
         acknowledgement = ws_one.receive_json()
         message_event = ws_one.receive_json()
         assert acknowledgement["type"] == "message_ack"
-        assert message_event["type"] == "message"
-        assert message_event["data"]["content"] == "Remaining participant message"
+        assert message_event["type"] == "message.created"
+        assert message_event["message"]["content"] == "Remaining participant message"
 
     assert len(connection_manager.get_connections(conv_id)) == 0
 
@@ -651,12 +657,93 @@ def test_connection_remains_usable_after_recoverable_persistence_failure(monkeyp
         recipient_event = ws_two.receive_json()
 
         assert acknowledgement["type"] == "message_ack"
-        assert sender_event["type"] == "message"
-        assert recipient_event["type"] == "message"
-        assert sender_event["data"]["content"] == "successful retry"
-        assert recipient_event["data"]["content"] == "successful retry"
+        assert sender_event["type"] == "message.created"
+        assert recipient_event["type"] == "message.created"
+        assert sender_event["message"]["content"] == "successful retry"
+        assert recipient_event["message"]["content"] == "successful retry"
 
     assert db.get_db()["messages"].count_documents({"conversation_id": ObjectId(conversation_id)}) == 1
+
+
+def test_rest_message_creation_broadcasts_to_connected_websocket_clients():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    response = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    )
+    conv_id = response.json()["id"]
+
+    with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token1}") as ws_one, \
+         client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as ws_two:
+        # User 1 sends message via REST
+        rest_response = client.post(
+            f"/conversations/{conv_id}/messages",
+            json={"content": "Real-time message via REST"},
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+        assert rest_response.status_code == 201
+        created_msg = rest_response.json()
+
+        # Both connected WebSocket participants receive the broadcast in real time
+        event_one = ws_one.receive_json()
+        event_two = ws_two.receive_json()
+
+        assert event_one["type"] == "message.created"
+        assert event_two["type"] == "message.created"
+        assert event_one["conversation_id"] == conv_id
+        assert event_two["conversation_id"] == conv_id
+        assert event_one["message"]["id"] == created_msg["id"]
+        assert event_two["message"]["id"] == created_msg["id"]
+        assert event_one["message"]["content"] == "Real-time message via REST"
+        assert event_two["message"]["content"] == "Real-time message via REST"
+
+
+def test_rest_message_does_not_broadcast_to_unrelated_conversation():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    token3 = register_and_login(TEST_USERS[2])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+    user3 = db.get_db()["users"].find_one({"email": TEST_USERS[2]["email"]})
+
+    conv_a = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    ).json()["id"]
+    conv_b = client.post(
+        "/conversations",
+        json={"other_user_id": str(user3["_id"])},
+        headers={"Authorization": f"Bearer {token2}"},
+    ).json()["id"]
+
+    with client.websocket_connect(f"/ws/conversations/{conv_a}?token={token1}") as ws_a, \
+         client.websocket_connect(f"/ws/conversations/{conv_b}?token={token3}") as ws_b:
+        # Message sent to conv_a
+        client.post(
+            f"/conversations/{conv_a}/messages",
+            json={"content": "Targeted to Room A"},
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+
+        event_a = ws_a.receive_json()
+        assert event_a["type"] == "message.created"
+        assert event_a["conversation_id"] == conv_a
+        assert event_a["message"]["content"] == "Targeted to Room A"
+
+        # ws_b in conversation B sends its own message to confirm it only receives conv_b events
+        client.post(
+            f"/conversations/{conv_b}/messages",
+            json={"content": "Targeted to Room B"},
+            headers={"Authorization": f"Bearer {token2}"},
+        )
+        event_b = ws_b.receive_json()
+        assert event_b["type"] == "message.created"
+        assert event_b["conversation_id"] == conv_b
+        assert event_b["message"]["content"] == "Targeted to Room B"
 
 
 def test_unexpected_outer_websocket_exception_is_logged_and_connection_cleaned(monkeypatch, caplog):

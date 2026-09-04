@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAccessToken } from '../services/api.js'
 
 function getWebSocketUrl(conversationId) {
@@ -15,6 +15,8 @@ export function useConversationSocket(conversationId, { onEvent, onError }) {
   const socketRef = useRef(null)
   const onEventRef = useRef(onEvent)
   const onErrorRef = useRef(onError)
+  const reconnectTimeoutRef = useRef(null)
+  const reconnectAttemptsRef = useRef(0)
   const [status, setStatus] = useState('disconnected')
 
   useEffect(() => {
@@ -27,37 +29,109 @@ export function useConversationSocket(conversationId, { onEvent, onError }) {
       return undefined
     }
 
-    const socket = new WebSocket(getWebSocketUrl(conversationId))
-    socketRef.current = socket
+    let isCancelled = false
 
-    socket.onopen = () => setStatus('connected')
-    socket.onmessage = (event) => {
+    function connect() {
+      if (isCancelled) return
+
+      const token = getAccessToken()
+      if (!token) {
+        // If no token yet (e.g. during initial restore), try reconnecting shortly
+        setStatus('connecting')
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (!isCancelled) connect()
+        }, 1000)
+        return
+      }
+
+      setStatus('connecting')
+      let socket
       try {
-        onEventRef.current(JSON.parse(event.data))
+        socket = new WebSocket(getWebSocketUrl(conversationId))
       } catch {
-        onErrorRef.current('Received an invalid message from the chat server.')
+        setStatus('error')
+        scheduleReconnect()
+        return
+      }
+
+      socketRef.current = socket
+
+      socket.onopen = () => {
+        if (isCancelled || socketRef.current !== socket) {
+          socket.close()
+          return
+        }
+        reconnectAttemptsRef.current = 0
+        setStatus('connected')
+      }
+
+      socket.onmessage = (event) => {
+        if (isCancelled || socketRef.current !== socket) return
+        try {
+          const parsed = JSON.parse(event.data)
+          onEventRef.current?.(parsed)
+        } catch {
+          onErrorRef.current?.('Received an invalid message from the chat server.')
+        }
+      }
+
+      socket.onerror = () => {
+        if (isCancelled || socketRef.current !== socket) return
+        setStatus('error')
+      }
+
+      socket.onclose = (event) => {
+        if (socketRef.current === socket) {
+          socketRef.current = null
+        }
+        if (isCancelled) return
+
+        setStatus('disconnected')
+        // Code 1000 means normal closure; 1008 is auth/policy violation
+        if (event.code !== 1000 && event.code !== 1008) {
+          scheduleReconnect()
+        }
       }
     }
-    socket.onerror = () => {
-      setStatus('error')
-      onErrorRef.current('The real-time connection could not be established.')
-    }
-    socket.onclose = () => {
-      setStatus('disconnected')
-      if (socketRef.current === socket) socketRef.current = null
+
+    function scheduleReconnect() {
+      if (isCancelled) return
+      clearTimeout(reconnectTimeoutRef.current)
+      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttemptsRef.current), 10000)
+      reconnectAttemptsRef.current += 1
+      reconnectTimeoutRef.current = setTimeout(() => {
+        if (!isCancelled) {
+          connect()
+        }
+      }, delay)
     }
 
+    connect()
+
     return () => {
-      socket.close()
-      if (socketRef.current === socket) socketRef.current = null
+      isCancelled = true
+      clearTimeout(reconnectTimeoutRef.current)
+      if (socketRef.current) {
+        const activeSocket = socketRef.current
+        socketRef.current = null
+        try {
+          activeSocket.close(1000, 'Conversation changed or unmounted')
+        } catch {
+          // Ignore close errors on teardown
+        }
+      }
     }
   }, [conversationId])
 
-  const send = (content) => {
+  const send = useCallback((content) => {
     if (socketRef.current?.readyState !== WebSocket.OPEN) return false
-    socketRef.current.send(JSON.stringify({ content }))
-    return true
-  }
+    try {
+      socketRef.current.send(JSON.stringify({ content }))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
-  return { status: conversationId && status === 'disconnected' ? 'connecting' : status, send }
+  return { status: conversationId ? status : 'disconnected', send }
 }

@@ -10,7 +10,7 @@ import UserSearch from '../components/UserSearch.jsx'
 import WorkspaceSelector from '../components/WorkspaceSelector.jsx'
 import { useAuth } from '../context/useAuth.js'
 import { useConversationSocket } from '../hooks/useConversationSocket.js'
-import { createConversation, getConversations, getMessages } from '../services/conversationService.js'
+import { createConversation, getConversations, getMessages, sendMessage } from '../services/conversationService.js'
 import { getMyOrganizations, getOrgConversations } from '../services/organizationService.js'
 
 function formatError(error, fallback) {
@@ -192,11 +192,20 @@ function ChatPage() {
 
   // WebSocket real-time handling
   const handleSocketEvent = (event) => {
-    if (event.type === 'message_ack' || event.type === 'message') {
-      setMessages((current) => mergeMessage(current, event.data))
+    if (!event || !selectedConversation) return
+
+    const eventConvId = event.conversation_id || event.message?.conversation_id || event.data?.conversation_id
+    if (eventConvId && eventConvId !== selectedConversation.id) {
+      return
     }
-    if (event.type === 'error') {
-      setMessageError(event.data?.detail || 'The chat server rejected that message.')
+
+    if (event.type === 'message.created' || event.type === 'message' || event.type === 'message_ack') {
+      const msg = event.message || event.data
+      if (msg) {
+        setMessages((current) => mergeMessage(current, msg))
+      }
+    } else if (event.type === 'error') {
+      setMessageError(event.data?.detail || event.detail || 'The chat server rejected that message.')
     }
   }
 
@@ -206,12 +215,24 @@ function ChatPage() {
   })
 
   const handleSend = async (content) => {
-    if (send(content)) {
+    if (!selectedConversation) return false
+
+    // 1. If real-time WebSocket is connected, send via WebSocket
+    if (socketStatus === 'connected' && send(content)) {
       setMessageError('')
       return true
     }
-    setMessageError('The real-time connection is not ready. Please try again.')
-    return false
+
+    // 2. Fallback to REST API send_message
+    try {
+      setMessageError('')
+      const savedMessage = await sendMessage(selectedConversation.id, content)
+      setMessages((current) => mergeMessage(current, savedMessage))
+      return true
+    } catch (error) {
+      setMessageError(formatError(error, 'Unable to send message.'))
+      return false
+    }
   }
 
   // Workspace switching
@@ -413,7 +434,7 @@ function ChatPage() {
 
             <MessageComposer
               onSend={handleSend}
-              disabled={socketStatus !== 'connected'}
+              disabled={isLoadingMessages || messagesConversationId !== selectedConversation.id}
             />
           </>
         ) : (

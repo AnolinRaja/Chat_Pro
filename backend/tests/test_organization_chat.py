@@ -503,8 +503,8 @@ def test_websocket_active_member_can_connect_and_receive_messages():
 
             # User 2 receives broadcast
             bcast = ws2.receive_json()
-            assert bcast["type"] == "message"
-            assert bcast["data"]["content"] == "Real-time hello!"
+            assert bcast["type"] == "message.created"
+            assert bcast["message"]["content"] == "Real-time hello!"
 
 
 def test_websocket_non_member_connection_rejected_with_1008():

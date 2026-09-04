@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import api, { TOKEN_STORAGE_KEY } from '../services/api.js'
+import api, { clearAccessToken, setAccessToken } from '../services/api.js'
 import authContextValue from './authContextValue.js'
 
 function getErrorMessage(error, fallback) {
@@ -18,7 +18,7 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
 
   const clearSession = () => {
-    localStorage.removeItem(TOKEN_STORAGE_KEY)
+    clearAccessToken()
     setUser(null)
   }
 
@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/login', credentials)
       if (response.data.access_token) {
-        localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
+        setAccessToken(response.data.access_token)
         await refreshUser()
       }
       return response.data
@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/auth/login/2sv', { two_factor_token, code })
       if (response.data.access_token) {
-        localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
+        setAccessToken(response.data.access_token)
         await refreshUser()
       }
       return response.data
@@ -59,8 +59,10 @@ export function AuthProvider({ children }) {
   const verifyLogin = async (email, otp) => {
     try {
       const response = await api.post('/auth/login/verify', { email, otp })
-      localStorage.setItem(TOKEN_STORAGE_KEY, response.data.access_token)
-      await refreshUser()
+      if (response.data.access_token) {
+        setAccessToken(response.data.access_token)
+        await refreshUser()
+      }
       return response.data
     } catch (error) {
       clearSession()
@@ -96,38 +98,40 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    let active = true
+
     const restoreSession = async () => {
-      const token = localStorage.getItem(TOKEN_STORAGE_KEY)
-      if (token) {
-        try {
-          await refreshUser()
-        } catch (error) {
-          if (error.response && error.response.status === 401) {
-            try {
-              const refreshRes = await api.post('/auth/refresh')
-              const newAccessToken = refreshRes.data.access_token
-              localStorage.setItem(TOKEN_STORAGE_KEY, newAccessToken)
-              await refreshUser()
-            } catch {
-              clearSession()
-            }
-          } else {
-            clearSession()
+      try {
+        // Startup session restoration authoritative via HttpOnly refresh/session cookie
+        const refreshRes = await api.post('/auth/refresh')
+        if (!active) return
+
+        const { access_token } = refreshRes.data
+        if (access_token) {
+          setAccessToken(access_token)
+          const meRes = await api.get('/auth/me')
+          if (active) {
+            setUser(meRes.data)
           }
-        }
-      } else {
-        try {
-          const refreshRes = await api.post('/auth/refresh')
-          const newAccessToken = refreshRes.data.access_token
-          localStorage.setItem(TOKEN_STORAGE_KEY, newAccessToken)
-          await refreshUser()
-        } catch {
+        } else {
           clearSession()
         }
+      } catch {
+        if (active) {
+          clearSession()
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false)
+        }
       }
-      setIsLoading(false)
     }
+
     restoreSession()
+
+    return () => {
+      active = false
+    }
   }, [])
 
   return (

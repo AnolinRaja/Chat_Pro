@@ -1,6 +1,18 @@
 import axios from 'axios'
 
-export const TOKEN_STORAGE_KEY = 'chatpro_access_token'
+let inMemoryAccessToken = null
+
+export function setAccessToken(token) {
+  inMemoryAccessToken = token || null
+}
+
+export function getAccessToken() {
+  return inMemoryAccessToken
+}
+
+export function clearAccessToken() {
+  inMemoryAccessToken = null
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
@@ -9,12 +21,32 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
+
+const AUTH_BYPASS_URLS = new Set([
+  '/auth/refresh',
+  '/auth/login',
+  '/auth/login/2sv',
+  '/auth/login/verify',
+  '/auth/login/resend',
+  '/auth/register',
+  '/auth/register/verify',
+  '/auth/register/resend',
+  '/auth/forgot-password/request',
+  '/auth/forgot-password/verify',
+  '/auth/forgot-password/reset',
+])
+
+function isAuthBypassUrl(url) {
+  if (!url) return false
+  const cleanUrl = url.split('?')[0]
+  return AUTH_BYPASS_URLS.has(cleanUrl)
+}
 
 let isRefreshing = false
 let failedQueue = []
@@ -38,10 +70,9 @@ api.interceptors.response.use(
     if (
       error.response &&
       error.response.status === 401 &&
+      originalRequest &&
       !originalRequest._retry &&
-      originalRequest.url !== '/auth/refresh' &&
-      originalRequest.url !== '/auth/login' &&
-      originalRequest.url !== '/auth/login/verify'
+      !isAuthBypassUrl(originalRequest.url)
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -61,7 +92,7 @@ api.interceptors.response.use(
         const response = await api.post('/auth/refresh')
         const { access_token } = response.data
 
-        localStorage.setItem(TOKEN_STORAGE_KEY, access_token)
+        setAccessToken(access_token)
 
         processQueue(null, access_token)
         isRefreshing = false
@@ -72,7 +103,7 @@ api.interceptors.response.use(
         processQueue(refreshError, null)
         isRefreshing = false
 
-        localStorage.removeItem(TOKEN_STORAGE_KEY)
+        clearAccessToken()
         window.dispatchEvent(new Event('auth:logout'))
         return Promise.reject(refreshError)
       }

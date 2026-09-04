@@ -8,12 +8,31 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RegisterPage from './pages/RegisterPage.jsx'
 
+function AppLoadingScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f4f7f6] text-[#172321]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0f766e] text-xl font-bold text-white shadow-md animate-pulse">
+          C
+        </div>
+        <div className="flex items-center gap-2 text-sm font-medium text-[#60736e]">
+          <svg className="h-4 w-4 animate-spin text-[#0f766e]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Restoring your session...</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProtectedRoute({ children }) {
   const { user, isLoading } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
-    return <div className="grid min-h-[calc(100vh-73px)] place-items-center text-sm text-[#60736e]">Restoring your session...</div>
+    return <AppLoadingScreen />
   }
 
   return user ? children : <Navigate to="/login" replace state={{ from: location }} />
@@ -27,7 +46,7 @@ function AppShell({ children }) {
     <div className="min-h-screen bg-[#f4f7f6] text-[#172321]">
       <header className="border-b border-[#dbe5e1] bg-white/90 pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-3 py-3 sm:px-8 sm:py-4">
-          <Link to="/login" className="flex items-center gap-2 sm:gap-3 shrink-0" aria-label="ChatPRO home">
+          <Link to={user ? "/chat" : "/login"} className="flex items-center gap-2 sm:gap-3 shrink-0" aria-label="ChatPRO home">
             <span className="grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-xl bg-[#0f766e] text-base sm:text-lg font-bold text-white shadow-xs">C</span>
             <span className="text-lg sm:text-xl font-semibold tracking-tight">ChatPRO</span>
           </Link>
@@ -71,15 +90,21 @@ function AppShell({ children }) {
 }
 
 function App() {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <AppLoadingScreen />
+  }
+
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
+        <Route path="/login" element={user ? <Navigate to="/chat" replace /> : <LoginPage />} />
+        <Route path="/forgot-password" element={user ? <Navigate to="/chat" replace /> : <ForgotPasswordPage />} />
+        <Route path="/register" element={user ? <Navigate to="/chat" replace /> : <RegisterPage />} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to={user ? "/chat" : "/login"} replace />} />
       </Routes>
     </AppShell>
   )

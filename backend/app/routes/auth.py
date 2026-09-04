@@ -188,7 +188,8 @@ def confirm_2sv(
     _enforce_auth_rate_limit(request, "2sv_confirm")
     result = TwoFactorService.confirm_2sv(current_user["id"], payload.code)
 
-    # Revoke old sessions and issue a fresh session
+    # Revoke all prior sessions and issue a fresh session
+    SessionService.revoke_all_user_sessions(current_user["id"])
     session_id, raw_token = SessionService.create_session(current_user["id"])
     cookie_value = f"{session_id}.{raw_token}"
     response.set_cookie(
@@ -199,7 +200,7 @@ def confirm_2sv(
         samesite=settings.SESSION_COOKIE_SAMESITE,
         max_age=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600,
         path="/",
-        )
+    )
     return result
 
 
@@ -218,7 +219,8 @@ def disable_2sv(
     password_verified = AuthService.verify_password(payload.password, user.get("password_hash", ""))
     result = TwoFactorService.disable_2sv(current_user["id"], password_verified, payload.code)
 
-    # Revoke old sessions and issue a fresh session
+    # Revoke all prior sessions and issue a fresh session
+    SessionService.revoke_all_user_sessions(current_user["id"])
     session_id, raw_token = SessionService.create_session(current_user["id"])
     cookie_value = f"{session_id}.{raw_token}"
     response.set_cookie(
@@ -255,6 +257,14 @@ def refresh_session(response: Response, refresh_token: str | None = Cookie(None)
         raise
     except Exception as e:
         logger.error("Error during session refresh: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session."
+        )
+
+    user = db.get_db()["users"].find_one({"_id": ObjectId(user_id)})
+    if not user or user.get("email_verified", True) is False:
+        SessionService.revoke_session(new_session_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session."

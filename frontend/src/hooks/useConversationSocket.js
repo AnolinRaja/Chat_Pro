@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { TOKEN_STORAGE_KEY } from '../services/api.js'
+import { getAccessToken } from '../services/api.js'
 
 function getWebSocketUrl(conversationId) {
   const configuredApiUrl = import.meta.env.VITE_API_BASE_URL || '/api'
   const apiUrl = configuredApiUrl.startsWith('/') ? window.location.origin : configuredApiUrl
   const url = new URL(`/ws/conversations/${conversationId}`, apiUrl)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = getAccessToken()
   if (token) url.searchParams.set('token', token)
   return url.toString()
 }

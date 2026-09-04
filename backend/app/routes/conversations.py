@@ -173,9 +173,11 @@ async def websocket_conversation(websocket: WebSocket, conversation_id: str):
                 # Backward-compatible data field for legacy listeners
                 "data": encoded_message,
             }
+            participant_user_ids = ConversationService.get_conversation_participant_ids(conversation_id)
             await connection_manager.broadcast(
                 conversation_id,
                 broadcast_event,
+                participant_user_ids=participant_user_ids,
             )
     except WebSocketDisconnect:
         logger.info(
@@ -344,7 +346,12 @@ async def send_message(conversation_id: str, payload: MessageCreate, current_use
             "message": encoded_message,
             "data": encoded_message,
         }
-        await connection_manager.broadcast(conversation_id, broadcast_event)
+        participant_user_ids = ConversationService.get_conversation_participant_ids(conversation_id)
+        await connection_manager.broadcast(
+            conversation_id,
+            broadcast_event,
+            participant_user_ids=participant_user_ids,
+        )
         return saved_message
     except HTTPException:
         raise

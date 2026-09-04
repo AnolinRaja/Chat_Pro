@@ -254,3 +254,25 @@ class ConversationService:
             "created_at": doc["created_at"],
             "updated_at": doc["updated_at"],
         }
+
+    @staticmethod
+    def get_conversation_participant_ids(conversation_id: str) -> list[str]:
+        try:
+            conv_oid = ObjectId(conversation_id)
+        except Exception:
+            return []
+
+        conv = db.get_db()["conversations"].find_one({"_id": conv_oid})
+        if not conv:
+            return []
+
+        if conv.get("type") == "organization" or conv.get("organization_id") is not None:
+            org_oid = conv.get("organization_id")
+            if not org_oid:
+                return []
+            members = db.get_db()["organization_memberships"].find(
+                {"organization_id": org_oid, "status": "approved"}
+            )
+            return [str(m["user_id"]) for m in members]
+
+        return [str(p) for p in conv.get("participants", [])]

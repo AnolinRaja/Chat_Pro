@@ -13,6 +13,7 @@ import { useConversationSocket } from '../hooks/useConversationSocket.js'
 import { createConversation, getConversations, getMessages, sendMessage } from '../services/conversationService.js'
 import { getMyOrganizations, getOrgConversations } from '../services/organizationService.js'
 import { getSavedChatContext, saveChatContext } from '../utils/chatSessionStorage.js'
+import { clearConversationUnread, recordMessageActivity, sortByNewestActivity } from '../utils/activityUtils.js'
 
 function formatError(error, fallback) {
   if (!error.response) return 'The backend is unavailable. Check that it is running and try again.'
@@ -24,7 +25,7 @@ function formatError(error, fallback) {
 }
 
 function mergeMessage(messages, message) {
-  if (!message?.id || messages.some((item) => item.id === message.id)) return messages
+  if (!message?.id || messages.some((item) => String(item.id) === String(message.id))) return messages
   return [...messages, message].sort((first, second) => new Date(first.created_at) - new Date(second.created_at))
 }
 
@@ -56,6 +57,22 @@ function ChatPage() {
   const [messagesConversationId, setMessagesConversationId] = useState(null)
   const [messageError, setMessageError] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+
+  // In-memory activity map: { [conversationId]: { latestPreview, latestMessageAt, unreadCount } }
+  const [activityState, setActivityState] = useState({})
+  const activityStateRef = useRef(activityState)
+  useEffect(() => {
+    activityStateRef.current = activityState
+  }, [activityState])
+
+  const [activeUserId, setActiveUserId] = useState(user?.id)
+
+  // Reset in-memory activity state during render when user changes (User isolation)
+  if (activeUserId !== user?.id) {
+    setActiveUserId(user?.id)
+    setActivityState({})
+    activityStateRef.current = {}
+  }
 
   // Modals
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
@@ -102,7 +119,7 @@ function ChatPage() {
           const targetOrgId = savedContextRef.current.organizationId
           if (targetOrgId) {
             const matchingOrg = fetchedMemberships.find(
-              (m) => m.organization_id === targetOrgId || m.org_id === targetOrgId
+              (m) => String(m.organization_id) === String(targetOrgId) || String(m.org_id) === String(targetOrgId)
             )
             if (matchingOrg) {
               setActiveWorkspace(matchingOrg)
@@ -134,10 +151,11 @@ function ChatPage() {
         setIsLoadingConversations(true)
         const result = await getConversations()
         if (active) {
-          setConversations(result)
+          const sorted = sortByNewestActivity(result, activityStateRef.current)
+          setConversations(sorted)
           // If on Direct Messages workspace, restore saved DM conversation if valid
           if (!savedContextRef.current.organizationId && savedContextRef.current.conversationId) {
-            const matchingConv = result.find((c) => c.id === savedContextRef.current.conversationId)
+            const matchingConv = sorted.find((c) => String(c.id) === String(savedContextRef.current.conversationId))
             if (matchingConv) {
               setSelectedConversation(matchingConv)
               savedContextRef.current.conversationId = null
@@ -175,17 +193,18 @@ function ChatPage() {
       try {
         const result = await getOrgConversations(activeWorkspace.organization_id)
         if (active) {
-          setChannels(result)
+          const sorted = sortByNewestActivity(result, activityStateRef.current)
+          setChannels(sorted)
           // Restore saved channel if matching this organization
           const targetConvId = savedContextRef.current.conversationId
-          const matchingChannel = targetConvId ? result.find((c) => c.id === targetConvId) : null
+          const matchingChannel = targetConvId ? sorted.find((c) => String(c.id) === String(targetConvId)) : null
 
           if (matchingChannel) {
             setSelectedConversation(matchingChannel)
             savedContextRef.current.conversationId = null
-          } else if (result.length > 0) {
+          } else if (sorted.length > 0) {
             // Auto-select general or first channel if available
-            const general = result.find((c) => c.name === 'general') || result[0]
+            const general = sorted.find((c) => c.name === 'general') || sorted[0]
             setSelectedConversation(general)
             if (user?.id) {
               saveChatContext(user.id, {
@@ -233,6 +252,53 @@ function ChatPage() {
         if (active) {
           setMessages(result)
           setMessagesConversationId(selectedConversation.id)
+
+          // Derive latest preview from loaded messages, preserving any newer WS activity
+          setActivityState((prev) => {
+            const existing = prev[selectedConversation.id]
+            const existingTime = existing?.latestMessageAt ? new Date(existing.latestMessageAt).getTime() : 0
+
+            if (result && result.length > 0) {
+              const lastMsg = result[result.length - 1]
+              const restTime = new Date(lastMsg.created_at).getTime()
+              if (existingTime > restTime) {
+                return {
+                  ...prev,
+                  [selectedConversation.id]: {
+                    ...existing,
+                    unreadCount: 0,
+                  },
+                }
+              }
+              return {
+                ...prev,
+                [selectedConversation.id]: {
+                  latestPreview: lastMsg.content,
+                  latestMessageAt: lastMsg.created_at,
+                  unreadCount: 0,
+                },
+              }
+            }
+
+            if (existingTime > 0) {
+              return {
+                ...prev,
+                [selectedConversation.id]: {
+                  ...existing,
+                  unreadCount: 0,
+                },
+              }
+            }
+
+            return {
+              ...prev,
+              [selectedConversation.id]: {
+                latestPreview: 'No messages yet',
+                latestMessageAt: selectedConversation.updated_at || selectedConversation.created_at,
+                unreadCount: 0,
+              },
+            }
+          })
         }
       })
       .catch((error) => {
@@ -250,17 +316,55 @@ function ChatPage() {
 
   // WebSocket real-time handling
   const handleSocketEvent = (event) => {
-    if (!event || !selectedConversation) return
+    if (!event) return
 
     const eventConvId = event.conversation_id || event.message?.conversation_id || event.data?.conversation_id
-    if (eventConvId && eventConvId !== selectedConversation.id) {
-      return
-    }
+    if (!eventConvId) return
 
     if (event.type === 'message.created' || event.type === 'message' || event.type === 'message_ack') {
       const msg = event.message || event.data
       if (msg) {
-        setMessages((current) => mergeMessage(current, msg))
+        const isCurrentConv = selectedConversation && String(eventConvId) === String(selectedConversation.id)
+        if (isCurrentConv) {
+          setMessages((current) => mergeMessage(current, msg))
+        }
+
+        const msgTimestamp = msg.created_at || new Date().toISOString()
+
+        // Update in-memory activity state
+        setActivityState((prev) =>
+          recordMessageActivity(prev, eventConvId, {
+            content: msg.content,
+            timestamp: msgTimestamp,
+            isCurrentlySelected: Boolean(isCurrentConv),
+          })
+        )
+
+        // Reorder conversations or channels strictly based on newest activity timestamp
+        setConversations((prev) => {
+          if (prev.some((c) => String(c.id) === String(eventConvId))) {
+            const updated = prev.map((c) => (String(c.id) === String(eventConvId) ? { ...c, updated_at: msgTimestamp } : c))
+            return sortByNewestActivity(updated, activityStateRef.current)
+          }
+          // If conversation isn't in current list, fetch updated conversations from backend
+          getConversations()
+            .then((result) => setConversations(sortByNewestActivity(result, activityStateRef.current)))
+            .catch(() => {})
+          return prev
+        })
+
+        setChannels((prev) => {
+          if (prev.some((c) => String(c.id) === String(eventConvId))) {
+            const updated = prev.map((c) => (String(c.id) === String(eventConvId) ? { ...c, updated_at: msgTimestamp } : c))
+            return sortByNewestActivity(updated, activityStateRef.current)
+          }
+          if (activeWorkspace) {
+            getOrgConversations(activeWorkspace.organization_id)
+              .then((result) => setChannels(sortByNewestActivity(result, activityStateRef.current)))
+              .catch(() => {})
+          }
+          return prev
+        })
       }
     } else if (event.type === 'error') {
       setMessageError(event.data?.detail || event.detail || 'The chat server rejected that message.')
@@ -275,9 +379,32 @@ function ChatPage() {
   const handleSend = async (content) => {
     if (!selectedConversation) return false
 
+    const nowIso = new Date().toISOString()
+
     // 1. If real-time WebSocket is connected, send via WebSocket
     if (socketStatus === 'connected' && send(content)) {
       setMessageError('')
+      setActivityState((prev) =>
+        recordMessageActivity(prev, selectedConversation.id, {
+          content,
+          timestamp: nowIso,
+          isCurrentlySelected: true,
+        })
+      )
+      setConversations((prev) => {
+        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
+          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: nowIso } : c))
+          return sortByNewestActivity(updated, activityStateRef.current)
+        }
+        return prev
+      })
+      setChannels((prev) => {
+        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
+          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: nowIso } : c))
+          return sortByNewestActivity(updated, activityStateRef.current)
+        }
+        return prev
+      })
       return true
     }
 
@@ -286,6 +413,28 @@ function ChatPage() {
       setMessageError('')
       const savedMessage = await sendMessage(selectedConversation.id, content)
       setMessages((current) => mergeMessage(current, savedMessage))
+      const savedTimestamp = savedMessage.created_at || nowIso
+      setActivityState((prev) =>
+        recordMessageActivity(prev, selectedConversation.id, {
+          content: savedMessage.content || content,
+          timestamp: savedTimestamp,
+          isCurrentlySelected: true,
+        })
+      )
+      setConversations((prev) => {
+        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
+          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: savedTimestamp } : c))
+          return sortByNewestActivity(updated, activityStateRef.current)
+        }
+        return prev
+      })
+      setChannels((prev) => {
+        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
+          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: savedTimestamp } : c))
+          return sortByNewestActivity(updated, activityStateRef.current)
+        }
+        return prev
+      })
       return true
     } catch (error) {
       setMessageError(formatError(error, 'Unable to send message.'))
@@ -310,9 +459,12 @@ function ChatPage() {
     }
   }
 
-  // Conversation selection
+  // Conversation selection (selection clears unread count but does NOT artificially change activity timestamp)
   const handleSelectConversation = (conversation) => {
     setSelectedConversation(conversation)
+    if (conversation?.id) {
+      setActivityState((prev) => clearConversationUnread(prev, conversation.id))
+    }
     if (user?.id) {
       saveChatContext(user.id, {
         organizationId: activeWorkspace?.organization_id || null,
@@ -333,8 +485,9 @@ function ChatPage() {
       ))
       const conversation = existingConversation || await createConversation(selectedUser.id)
       const refreshedConversations = await getConversations()
-      setConversations(refreshedConversations)
-      const refreshedConversation = refreshedConversations.find((item) => item.id === conversation.id) || conversation
+      const sorted = sortByNewestActivity(refreshedConversations, activityStateRef.current)
+      setConversations(sorted)
+      const refreshedConversation = sorted.find((item) => item.id === conversation.id) || conversation
       setSelectedConversation(refreshedConversation)
       if (user?.id) {
         saveChatContext(user.id, {
@@ -388,7 +541,8 @@ function ChatPage() {
     if (!activeWorkspace) return
     try {
       const updatedChannels = await getOrgConversations(activeWorkspace.organization_id)
-      setChannels(updatedChannels)
+      const sorted = sortByNewestActivity(updatedChannels, activityStateRef.current)
+      setChannels(sorted)
       setSelectedConversation(newChannel)
       if (user?.id) {
         saveChatContext(user.id, {
@@ -397,7 +551,7 @@ function ChatPage() {
         })
       }
     } catch {
-      setChannels((prev) => [...prev, newChannel])
+      setChannels((prev) => sortByNewestActivity([...prev, newChannel], activityStateRef.current))
       setSelectedConversation(newChannel)
       if (user?.id) {
         saveChatContext(user.id, {
@@ -459,6 +613,7 @@ function ChatPage() {
                 onSelect={handleSelectConversation}
                 isLoading={isLoadingConversations}
                 error={conversationError}
+                activityState={activityState}
               />
             </div>
           </>
@@ -476,11 +631,12 @@ function ChatPage() {
               if (activeWorkspace) {
                 setIsLoadingChannels(true)
                 getOrgConversations(activeWorkspace.organization_id)
-                  .then(setChannels)
+                  .then((res) => setChannels(sortByNewestActivity(res, activityStateRef.current)))
                   .catch((err) => setChannelError(formatError(err, 'Unable to load channels.')))
                   .finally(() => setIsLoadingChannels(false))
               }
             }}
+            activityState={activityState}
           />
         )}
       </aside>

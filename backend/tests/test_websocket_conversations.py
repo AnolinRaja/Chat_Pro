@@ -10,6 +10,7 @@ from app.db import db
 from app.main import app
 from app.services.connection_manager import connection_manager
 from app.services.message_service import MessageService
+from app.services.rate_limiter import auth_rate_limiter
 
 client = TestClient(app)
 
@@ -22,16 +23,19 @@ TEST_USERS = [
 
 @pytest.fixture(autouse=True)
 def cleanup_test_data():
-    collection = db.get_db()["users"]
-    collection.delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
+    db.get_db()["users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
+    db.get_db()["unverified_users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
     db.get_db()["conversations"].delete_many({})
     db.get_db()["messages"].delete_many({})
     connection_manager.clear_all()
+    auth_rate_limiter.clear()
     yield
-    collection.delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
+    db.get_db()["users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
+    db.get_db()["unverified_users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
     db.get_db()["conversations"].delete_many({})
     db.get_db()["messages"].delete_many({})
     connection_manager.clear_all()
+    auth_rate_limiter.clear()
 
 
 def register_and_login(user_data):
@@ -51,6 +55,8 @@ def test_authenticated_participant_can_establish_websocket_connection():
         json={"other_user_id": str(user2["_id"])},
         headers={"Authorization": f"Bearer {token1}"},
     )
+    if response.status_code != 201:
+        raise RuntimeError(f"Create conversation failed: {response.status_code} {response.text}")
     conv_id = response.json()["id"]
 
     with client.websocket_connect(f"/ws/conversations/{conv_id}?token={token2}") as websocket:
@@ -334,13 +340,17 @@ def test_messages_are_isolated_between_conversations():
         ws_a_one.receive_json()
         conversation_a_sender_event = ws_a_one.receive_json()
         conversation_a_recipient_event = ws_a_two.receive_json()
+        conversation_a_inactive_event = ws_b_one.receive_json()
 
         assert conversation_a_sender_event["type"] == "message.created"
         assert conversation_a_recipient_event["type"] == "message.created"
+        assert conversation_a_inactive_event["type"] == "message.created"
         assert conversation_a_sender_event["message"]["content"] == "Conversation A message"
         assert conversation_a_recipient_event["message"]["content"] == "Conversation A message"
+        assert conversation_a_inactive_event["message"]["content"] == "Conversation A message"
         assert conversation_a_sender_event["conversation_id"] == conversation_a
         assert conversation_a_recipient_event["conversation_id"] == conversation_a
+        assert conversation_a_inactive_event["conversation_id"] == conversation_a
 
         ws_b_one.send_json({"content": "Conversation B message"})
         conversation_b_ack = ws_b_one.receive_json()

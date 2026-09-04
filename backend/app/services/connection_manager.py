@@ -92,36 +92,58 @@ class ConnectionManager:
             "idle_connections": idle_count,
         }
 
-    async def broadcast(self, conversation_id: str, message: dict[str, Any]) -> None:
+    def get_connections_for_conversation_or_participants(
+        self,
+        conversation_id: str,
+        participant_user_ids: list[str] | None = None,
+    ) -> list[WebSocket]:
+        result: list[WebSocket] = []
+        direct_connections = self._connections.get(conversation_id, [])
+        for ws in direct_connections:
+            if ws not in result:
+                result.append(ws)
+
+        if not participant_user_ids:
+            return result
+
+        participant_set = set(participant_user_ids)
+        for ws, meta in list(self._metadata.items()):
+            if meta.get("user_id") in participant_set:
+                if ws not in result:
+                    result.append(ws)
+
+        return result
+
+    async def broadcast(
+        self,
+        conversation_id: str,
+        message: dict[str, Any],
+        participant_user_ids: list[str] | None = None,
+    ) -> None:
         payload = jsonable_encoder(message)
+        connections = self.get_connections_for_conversation_or_participants(conversation_id, participant_user_ids)
         await asyncio.gather(
-            *(self._send_to_connection(conversation_id, websocket, payload)
-              for websocket in self.get_connections(conversation_id))
+            *(self._send_to_connection(websocket, payload)
+              for websocket in connections)
         )
 
     async def _send_to_connection(
         self,
-        conversation_id: str,
         websocket: WebSocket,
         payload: Any,
     ) -> None:
+        metadata = self._metadata.get(websocket)
+        if metadata is None:
+            return
+
+        if websocket.application_state != WebSocketState.CONNECTED:
+            self._remove_connection_safely(metadata.get("conversation_id", ""), websocket)
+            return
+
         try:
-            conversation_connections = self._connections.get(conversation_id, [])
-            if not any(ws is websocket for ws in conversation_connections):
-                return
-
-            metadata = self._metadata.get(websocket)
-            if metadata is None or metadata.get("conversation_id") != conversation_id:
-                self._remove_connection_safely(conversation_id, websocket)
-                return
-
-            if websocket.application_state != WebSocketState.CONNECTED:
-                self._remove_connection_safely(conversation_id, websocket)
-                return
-
             await websocket.send_json(payload)
         except Exception:
-            self._remove_connection_safely(conversation_id, websocket)
+            self._remove_connection_safely(metadata.get("conversation_id", ""), websocket)
 
     def _remove_connection_safely(self, conversation_id: str, websocket: WebSocket) -> None:
         metadata = self._metadata.get(websocket)

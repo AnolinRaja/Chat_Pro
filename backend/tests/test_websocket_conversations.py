@@ -23,26 +23,43 @@ TEST_USERS = [
 
 @pytest.fixture(autouse=True)
 def cleanup_test_data():
-    db.get_db()["users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
-    db.get_db()["unverified_users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
-    db.get_db()["conversations"].delete_many({})
-    db.get_db()["messages"].delete_many({})
-    connection_manager.clear_all()
+    client.cookies.clear()
     auth_rate_limiter.clear()
+    database = db.get_db()
+    database["users"].delete_many({})
+    database["unverified_users"].delete_many({})
+    database["conversations"].delete_many({})
+    database["messages"].delete_many({})
+    database["otp_codes"].delete_many({})
+    database["auth_challenges"].delete_many({})
+    connection_manager.clear_all()
     yield
-    db.get_db()["users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
-    db.get_db()["unverified_users"].delete_many({"email": {"$in": [u["email"] for u in TEST_USERS]}})
-    db.get_db()["conversations"].delete_many({})
-    db.get_db()["messages"].delete_many({})
-    connection_manager.clear_all()
+    client.cookies.clear()
     auth_rate_limiter.clear()
+    database["users"].delete_many({})
+    database["unverified_users"].delete_many({})
+    database["conversations"].delete_many({})
+    database["messages"].delete_many({})
+    database["otp_codes"].delete_many({})
+    database["auth_challenges"].delete_many({})
+    connection_manager.clear_all()
 
 
 def register_and_login(user_data):
-    client.post("/auth/register", json=user_data)
-    client.post("/auth/register/verify", json={"email": user_data["email"], "otp": "123456"})
+    client.cookies.clear()
+    auth_rate_limiter.clear()
+    db.get_db()["users"].delete_many({"email": user_data["email"]})
+    db.get_db()["unverified_users"].delete_many({"email": user_data["email"]})
+    r1 = client.post("/auth/register", json=user_data)
+    client.cookies.clear()
+    r2 = client.post("/auth/register/verify", json={"email": user_data["email"], "otp": "123456"})
+    client.cookies.clear()
     response = client.post("/auth/login", json={"email": user_data["email"], "password": user_data["password"]})
-    return response.json()["access_token"]
+    if response.status_code != 200:
+        raise RuntimeError(f"Register: {r1.status_code} {r1.text} | Verify: {r2.status_code} {r2.text} | Login: {response.status_code} {response.text}")
+    token = response.json()["access_token"]
+    client.cookies.clear()
+    return token
 
 
 def test_authenticated_participant_can_establish_websocket_connection():
@@ -790,3 +807,76 @@ def test_invalid_authentication_is_not_written_to_logs(caplog):
                 pass
 
     assert sensitive_token not in caplog.text
+
+
+def test_user_websocket_authentication_and_connection():
+    token1 = register_and_login(TEST_USERS[0])
+
+    # Valid token succeeds
+    with client.websocket_connect(f"/ws/user?token={token1}") as ws:
+        assert ws is not None
+
+    # Invalid token fails
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws/user?token=invalid_token"):
+            pass
+
+    # Missing token fails
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws/user"):
+            pass
+
+
+def test_user_websocket_receives_inactive_and_active_broadcasts():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    conv = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    ).json()
+    conv_id = conv["id"]
+
+    # User 1 is connected to persistent /ws/user without an open conversation
+    with client.websocket_connect(f"/ws/user?token={token1}") as ws1:
+        # User 2 sends message in conv_id via REST
+        client.post(
+            f"/conversations/{conv_id}/messages",
+            json={"content": "Persistent WS test message"},
+            headers={"Authorization": f"Bearer {token2}"},
+        )
+
+        event = ws1.receive_json()
+        assert event["type"] == "message.created"
+        assert event["conversation_id"] == conv_id
+        assert event["message"]["content"] == "Persistent WS test message"
+
+
+def test_user_websocket_non_participant_isolation():
+    token1 = register_and_login(TEST_USERS[0])
+    token2 = register_and_login(TEST_USERS[1])
+    token3 = register_and_login(TEST_USERS[2])
+    user2 = db.get_db()["users"].find_one({"email": TEST_USERS[1]["email"]})
+
+    conv = client.post(
+        "/conversations",
+        json={"other_user_id": str(user2["_id"])},
+        headers={"Authorization": f"Bearer {token1}"},
+    ).json()
+    conv_id = conv["id"]
+
+    # User 3 is connected to /ws/user (not a participant in conv)
+    with client.websocket_connect(f"/ws/user?token={token3}") as ws3:
+        # User 1 sends message to User 2
+        client.post(
+            f"/conversations/{conv_id}/messages",
+            json={"content": "Private message for User 2"},
+            headers={"Authorization": f"Bearer {token1}"},
+        )
+
+        # User 3 sends ping to verify WS is responsive without receiving User 1's message
+        ws3.send_json({"type": "ping"})
+        response = ws3.receive_json()
+        assert response == {"type": "pong"}

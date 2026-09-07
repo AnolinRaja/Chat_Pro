@@ -13,12 +13,13 @@ from app.config import settings
 
 class ConnectionManager:
     def __init__(self) -> None:
+        self._user_connections: dict[str, list[WebSocket]] = defaultdict(list)
         self._connections: dict[str, list[WebSocket]] = defaultdict(list)
         self._metadata: dict[WebSocket, dict[str, Any]] = {}
 
     def add_connection(self, conversation_id: str, websocket: WebSocket, user_id: str | None = None) -> None:
         existing_metadata = self._metadata.get(websocket)
-        if existing_metadata is not None and existing_metadata["conversation_id"] != conversation_id:
+        if existing_metadata is not None and existing_metadata.get("conversation_id") != conversation_id:
             raise ValueError(
                 "WebSocket is already registered to a different conversation."
             )
@@ -29,6 +30,18 @@ class ConnectionManager:
         now = datetime.now(timezone.utc)
         self._metadata[websocket] = {
             "conversation_id": conversation_id,
+            "user_id": user_id,
+            "connected_at": now,
+            "last_activity": now,
+        }
+
+    def add_user_connection(self, user_id: str, websocket: WebSocket) -> None:
+        user_connections = self._user_connections.setdefault(user_id, [])
+        if websocket not in user_connections:
+            user_connections.append(websocket)
+        now = datetime.now(timezone.utc)
+        self._metadata[websocket] = {
+            "conversation_id": None,
             "user_id": user_id,
             "connected_at": now,
             "last_activity": now,
@@ -46,23 +59,44 @@ class ConnectionManager:
         self.add_connection(conversation_id, websocket, user_id)
         return True
 
+    def try_add_user_connection(
+        self,
+        user_id: str,
+        websocket: WebSocket,
+        max_connections: int,
+    ) -> bool:
+        if self.get_user_connection_count(user_id) >= max_connections:
+            return False
+        self.add_user_connection(user_id, websocket)
+        return True
+
     def update_activity(self, websocket: WebSocket) -> None:
         if websocket in self._metadata:
             self._metadata[websocket]["last_activity"] = datetime.now(timezone.utc)
 
     def remove_connection(self, conversation_id: str, websocket: WebSocket) -> None:
         conversation_connections = self._connections.get(conversation_id)
-        if conversation_connections is None:
-            return
+        if conversation_connections is not None:
+            self._connections[conversation_id] = [ws for ws in conversation_connections if ws is not websocket]
+            if not self._connections[conversation_id]:
+                self._connections.pop(conversation_id, None)
+        if websocket in self._metadata:
+            del self._metadata[websocket]
 
-        self._connections[conversation_id] = [ws for ws in conversation_connections if ws is not websocket]
-        if not self._connections[conversation_id]:
-            self._connections.pop(conversation_id, None)
+    def remove_user_connection(self, user_id: str, websocket: WebSocket) -> None:
+        user_connections = self._user_connections.get(user_id)
+        if user_connections is not None:
+            self._user_connections[user_id] = [ws for ws in user_connections if ws is not websocket]
+            if not self._user_connections[user_id]:
+                self._user_connections.pop(user_id, None)
         if websocket in self._metadata:
             del self._metadata[websocket]
 
     def get_connections(self, conversation_id: str) -> list[WebSocket]:
         return list(self._connections.get(conversation_id, []))
+
+    def get_user_connections(self, user_id: str) -> list[WebSocket]:
+        return list(self._user_connections.get(user_id, []))
 
     def get_user_connection_count(self, user_id: str) -> int:
         return sum(
@@ -107,6 +141,11 @@ class ConnectionManager:
             return result
 
         participant_set = set(participant_user_ids)
+        for user_id in participant_set:
+            for ws in self._user_connections.get(user_id, []):
+                if ws not in result:
+                    result.append(ws)
+
         for ws, meta in list(self._metadata.items()):
             if meta.get("user_id") in participant_set:
                 if ws not in result:
@@ -137,26 +176,32 @@ class ConnectionManager:
             return
 
         if websocket.application_state != WebSocketState.CONNECTED:
-            self._remove_connection_safely(metadata.get("conversation_id", ""), websocket)
+            self._remove_connection_safely(metadata.get("conversation_id"), websocket)
             return
 
         try:
             await websocket.send_json(payload)
         except Exception:
-            self._remove_connection_safely(metadata.get("conversation_id", ""), websocket)
+            self._remove_connection_safely(metadata.get("conversation_id"), websocket)
 
-    def _remove_connection_safely(self, conversation_id: str, websocket: WebSocket) -> None:
+    def _remove_connection_safely(self, conversation_id: str | None, websocket: WebSocket) -> None:
         metadata = self._metadata.get(websocket)
-        if metadata is not None and metadata.get("conversation_id") != conversation_id:
-            self._remove_from_conversation(conversation_id, websocket)
-            return
-
-        try:
-            self.remove_connection(conversation_id, websocket)
-        except Exception:
-            self._remove_from_conversation(conversation_id, websocket)
-            if self._metadata.get(websocket) is metadata:
-                self._metadata.pop(websocket, None)
+        if metadata is not None:
+            user_id = metadata.get("user_id")
+            if user_id:
+                user_connections = self._user_connections.get(user_id)
+                if user_connections is not None:
+                    self._user_connections[user_id] = [ws for ws in user_connections if ws is not websocket]
+                    if not self._user_connections[user_id]:
+                        self._user_connections.pop(user_id, None)
+            conv_id = metadata.get("conversation_id")
+            if conv_id:
+                self._remove_from_conversation(conv_id, websocket)
+            if websocket in self._metadata:
+                del self._metadata[websocket]
+        else:
+            if conversation_id:
+                self.remove_connection(conversation_id, websocket)
 
     def _remove_from_conversation(self, conversation_id: str, websocket: WebSocket) -> None:
         conversation_connections = self._connections.get(conversation_id)
@@ -172,6 +217,7 @@ class ConnectionManager:
             self._connections.pop(conversation_id, None)
 
     def clear_all(self) -> None:
+        self._user_connections.clear()
         self._connections.clear()
         self._metadata.clear()
 

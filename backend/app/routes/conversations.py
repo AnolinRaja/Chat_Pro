@@ -30,6 +30,83 @@ router = APIRouter(tags=["conversations"])
 logger = logging.getLogger(__name__)
 
 
+@router.websocket("/ws/user")
+async def websocket_user(websocket: WebSocket):
+    current_user = None
+    token = websocket.query_params.get("token")
+    if not token:
+        auth_header = websocket.headers.get("authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header.split(" ", 1)[1]
+
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        current_user = await get_current_user_from_token(token)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+
+    admitted = connection_manager.try_add_user_connection(
+        current_user["id"],
+        websocket,
+        settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER,
+    )
+    if not admitted:
+        logger.warning(
+            "Persistent WebSocket connection rejected due to user limit user_id=%s limit=%s",
+            current_user["id"],
+            settings.WEBSOCKET_MAX_CONNECTIONS_PER_USER,
+        )
+        await websocket.close(code=1008)
+        return
+
+    try:
+        await websocket.accept()
+    except Exception:
+        connection_manager.remove_user_connection(current_user["id"], websocket)
+        raise
+
+    logger.info(
+        "Persistent WebSocket connection established for user_id=%s",
+        current_user["id"],
+    )
+
+    try:
+        while True:
+            raw_message = await websocket.receive_text()
+            connection_manager.update_activity(websocket)
+            message_size = len(raw_message.encode("utf-8"))
+            if message_size > settings.WEBSOCKET_MAX_MESSAGE_SIZE_BYTES:
+                await websocket.send_json({
+                    "type": "error",
+                    "data": {"detail": "WebSocket message is too large."},
+                })
+                continue
+            # Optionally handle client pings
+            try:
+                payload = json.loads(raw_message)
+                if isinstance(payload, dict) and payload.get("type") == "ping":
+                    await websocket.send_json({"type": "pong"})
+            except Exception:
+                pass
+    except WebSocketDisconnect:
+        logger.info(
+            "Persistent WebSocket disconnected for user_id=%s",
+            current_user["id"] if current_user else None,
+        )
+    except Exception:
+        logger.exception(
+            "Unexpected persistent WebSocket error for user_id=%s",
+            current_user["id"] if current_user else None,
+        )
+    finally:
+        if current_user:
+            connection_manager.remove_user_connection(current_user["id"], websocket)
+
+
 @router.websocket("/ws/conversations/{conversation_id}")
 async def websocket_conversation(websocket: WebSocket, conversation_id: str):
     current_user = None

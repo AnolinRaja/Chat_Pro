@@ -166,6 +166,20 @@ class ConnectionManager:
               for websocket in connections)
         )
 
+    async def send_to_user(
+        self,
+        user_id: str,
+        message: dict[str, Any],
+    ) -> None:
+        payload = jsonable_encoder(message)
+        user_sockets = self.get_user_connections(user_id)
+        if user_sockets:
+            await asyncio.gather(
+                *(self._send_to_connection(websocket, payload)
+                  for websocket in user_sockets)
+            )
+
+
     async def _send_to_connection(
         self,
         websocket: WebSocket,

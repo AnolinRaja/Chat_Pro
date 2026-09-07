@@ -68,6 +68,29 @@ class Database:
             "options": {},
         },
         {
+            "collection": "messages",
+            "name": "messages_conv_sender_created_id_idx",
+            "keys": [
+                ("conversation_id", ASCENDING),
+                ("sender_id", ASCENDING),
+                ("created_at", ASCENDING),
+                ("_id", ASCENDING),
+            ],
+            "options": {},
+        },
+        {
+            "collection": "conversation_reads",
+            "name": "reads_user_conversation_unique_idx",
+            "keys": [("user_id", ASCENDING), ("conversation_id", ASCENDING)],
+            "options": {"unique": True},
+        },
+        {
+            "collection": "conversation_reads",
+            "name": "reads_user_id_idx",
+            "keys": [("user_id", ASCENDING)],
+            "options": {},
+        },
+        {
             "collection": "otp_codes",
             "name": "otp_codes_identifier_purpose_created_idx",
             "keys": [("identifier", ASCENDING), ("purpose", ASCENDING), ("created_at", ASCENDING)],

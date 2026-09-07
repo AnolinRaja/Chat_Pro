@@ -50,9 +50,32 @@ class MessageService:
         except PyMongoError:
             raise HTTPException(status_code=500, detail="Unable to send message.")
 
+        msg_id_str = str(result.inserted_id)
+        latest_message_doc = {
+            "id": msg_id_str,
+            "content": content[:200],
+            "sender_id": user_id,
+            "created_at": now,
+        }
+
         for attempt in range(MessageService.ACTIVITY_UPDATE_ATTEMPTS):
             try:
-                conversations_collection.update_one({"_id": conv_oid}, {"$set": {"updated_at": now}})
+                conversations_collection.update_one(
+                    {
+                        "_id": conv_oid,
+                        "$or": [
+                            {"latest_message.created_at": {"$lt": now}},
+                            {"latest_message.created_at": now, "latest_message.id": {"$lt": msg_id_str}},
+                            {"latest_message": {"$exists": False}},
+                        ],
+                    },
+                    {
+                        "$set": {
+                            "updated_at": now,
+                            "latest_message": latest_message_doc,
+                        }
+                    },
+                )
                 break
             except PyMongoError:
                 if attempt == MessageService.ACTIVITY_UPDATE_ATTEMPTS - 1:
@@ -67,6 +90,60 @@ class MessageService:
             raise HTTPException(status_code=500, detail="Unable to send message.")
 
         return MessageService._format_message(created)
+
+    @staticmethod
+    def calculate_unread_count(conv_oid: ObjectId, user_oid: ObjectId, read_at: datetime | None, read_msg_oid: ObjectId | None) -> int:
+        if read_at is None or read_msg_oid is None:
+            return 0
+        messages_collection = db.get_db()["messages"]
+        query = {
+            "conversation_id": conv_oid,
+            "sender_id": {"$ne": user_oid},
+            "$or": [
+                {"created_at": {"$gt": read_at}},
+                {"created_at": read_at, "_id": {"$gt": read_msg_oid}},
+            ],
+        }
+        return messages_collection.count_documents(query)
+
+    @staticmethod
+    def calculate_unread_counts_batch(conv_read_map: dict[ObjectId, tuple[datetime | None, ObjectId | None]], user_oid: ObjectId) -> dict[ObjectId, int]:
+        unread_map: dict[ObjectId, int] = {conv_oid: 0 for conv_oid in conv_read_map}
+        match_conditions = []
+
+        for conv_oid, (read_at, read_msg_id) in conv_read_map.items():
+            if read_at is not None and read_msg_id is not None:
+                match_conditions.append({
+                    "conversation_id": conv_oid,
+                    "sender_id": {"$ne": user_oid},
+                    "$or": [
+                        {"created_at": {"$gt": read_at}},
+                        {"created_at": read_at, "_id": {"$gt": read_msg_id}},
+                    ],
+                })
+            else:
+                match_conditions.append({
+                    "conversation_id": conv_oid,
+                    "sender_id": {"$ne": user_oid},
+                })
+
+        if not match_conditions:
+            return unread_map
+
+        pipeline = [
+            {"$match": {"$or": match_conditions}},
+            {"$group": {"_id": "$conversation_id", "unread_count": {"$sum": 1}}},
+        ]
+
+        try:
+            results = list(db.get_db()["messages"].aggregate(pipeline))
+            for doc in results:
+                unread_map[doc["_id"]] = doc["unread_count"]
+        except PyMongoError as e:
+            logger.error("Failed to execute batched unread aggregation: %s", e)
+
+        return unread_map
+
 
     @staticmethod
     def get_messages(

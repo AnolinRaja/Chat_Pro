@@ -15,10 +15,19 @@ class ConversationUser(BaseModel):
     email: str
 
 
+class LatestMessageSchema(BaseModel):
+    id: str
+    content: str
+    sender_id: str
+    created_at: datetime
+
+
 class ConversationResponse(BaseModel):
     id: str
     participants: list[str]
     other_user: ConversationUser
+    latest_message: LatestMessageSchema | None = None
+    unread_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -54,8 +63,21 @@ class OrganizationConversationResponse(BaseModel):
     description: str | None = None
     created_by: str | None = None
     is_active: bool = True
+    latest_message: LatestMessageSchema | None = None
+    unread_count: int = 0
     created_at: datetime
     updated_at: datetime
+
+
+class MarkReadRequest(BaseModel):
+    last_read_message_id: str = Field(..., min_length=1)
+
+
+class MarkReadResponse(BaseModel):
+    conversation_id: str
+    last_read_message_id: str
+    last_read_at: datetime
+    unread_count: int = 0
 
 
 class MessageCreate(BaseModel):
@@ -79,3 +101,4 @@ class MessageResponse(BaseModel):
     sender_id: str
     content: str
     created_at: datetime
+

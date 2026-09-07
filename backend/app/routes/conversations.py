@@ -14,6 +14,8 @@ from app.schemas.audit import AuditAction, AuditActorType, AuditEventType, Audit
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationResponse,
+    MarkReadRequest,
+    MarkReadResponse,
     MessageCreate,
     MessageResponse,
     OrganizationConversationCreate,
@@ -408,8 +410,43 @@ def list_organization_conversations(
             detail="Access denied: active organization membership required.",
         )
 
-    channels = ConversationService.list_organization_conversations(organization_id)
-    return [OrganizationConversationResponse(**c) for c in channels]
+    try:
+        channels = ConversationService.list_organization_conversations(organization_id, user_id=current_user["id"])
+        return [OrganizationConversationResponse(**c) for c in channels]
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error listing organization conversations: %s", e)
+        raise HTTPException(status_code=500, detail="Unable to retrieve organization channels.")
+
+
+@router.post("/conversations/{conversation_id}/read", response_model=MarkReadResponse)
+async def mark_conversation_read(
+    conversation_id: str,
+    payload: MarkReadRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    try:
+        result = ConversationService.mark_conversation_read(
+            conversation_id=conversation_id,
+            user_id=current_user["id"],
+            last_read_message_id=payload.last_read_message_id,
+        )
+        if result.get("cursor_advanced", True):
+            read_event = {
+                "type": "conversation.read",
+                "conversation_id": conversation_id,
+                "user_id": current_user["id"],
+                "last_read_message_id": result["last_read_message_id"],
+                "last_read_at": result["last_read_at"].isoformat() if hasattr(result["last_read_at"], "isoformat") else str(result["last_read_at"]),
+            }
+            await connection_manager.send_to_user(current_user["id"], read_event)
+        return result
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Unable to mark conversation as read.")
+
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)

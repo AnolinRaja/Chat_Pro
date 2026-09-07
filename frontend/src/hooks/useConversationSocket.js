@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRealtime } from '../context/RealtimeContext.jsx'
 
 export function useConversationSocket(conversationId, { onEvent, onError } = {}) {
-  const { status, subscribe, send: realtimeSend } = useRealtime()
+  const { status, subscribe } = useRealtime()
   const onEventRef = useRef(onEvent)
   const onErrorRef = useRef(onError)
 
@@ -24,12 +24,6 @@ export function useConversationSocket(conversationId, { onEvent, onError } = {})
     }
   }, [subscribe])
 
-  const send = useCallback(
-    (content) => {
-      return realtimeSend({ conversation_id: conversationId, content })
-    },
-    [conversationId, realtimeSend]
-  )
-
-  return { status, send }
+  return { status }
 }
+

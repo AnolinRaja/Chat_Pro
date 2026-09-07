@@ -371,7 +371,7 @@ function ChatPage() {
     }
   }
 
-  const { status: socketStatus, send } = useConversationSocket(selectedConversation?.id, {
+  const { status: socketStatus } = useConversationSocket(selectedConversation?.id, {
     onEvent: handleSocketEvent,
     onError: setMessageError,
   })
@@ -381,34 +381,6 @@ function ChatPage() {
 
     const nowIso = new Date().toISOString()
 
-    // 1. If real-time WebSocket is connected, send via WebSocket
-    if (socketStatus === 'connected' && send(content)) {
-      setMessageError('')
-      setActivityState((prev) =>
-        recordMessageActivity(prev, selectedConversation.id, {
-          content,
-          timestamp: nowIso,
-          isCurrentlySelected: true,
-        })
-      )
-      setConversations((prev) => {
-        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
-          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: nowIso } : c))
-          return sortByNewestActivity(updated, activityStateRef.current)
-        }
-        return prev
-      })
-      setChannels((prev) => {
-        if (prev.some((c) => String(c.id) === String(selectedConversation.id))) {
-          const updated = prev.map((c) => (String(c.id) === String(selectedConversation.id) ? { ...c, updated_at: nowIso } : c))
-          return sortByNewestActivity(updated, activityStateRef.current)
-        }
-        return prev
-      })
-      return true
-    }
-
-    // 2. Fallback to REST API send_message
     try {
       setMessageError('')
       const savedMessage = await sendMessage(selectedConversation.id, content)

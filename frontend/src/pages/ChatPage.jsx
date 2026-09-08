@@ -221,7 +221,6 @@ function ChatPage() {
   // Load organizations on mount
   useEffect(() => {
     let active = true
-    setIsLoadingOrgs(true)
     getMyOrganizations()
       .then((result) => {
         if (active) {
@@ -300,8 +299,10 @@ function ChatPage() {
   // Load channels when an organization workspace is active
   useEffect(() => {
     if (!activeWorkspace) {
-      setChannels([])
-      setChannelError('')
+      queueMicrotask(() => {
+        setChannels([])
+        setChannelError('')
+      })
       return undefined
     }
 
@@ -362,17 +363,19 @@ function ChatPage() {
   // Load message history when selected conversation changes
   useEffect(() => {
     if (!selectedConversation) {
-      setMessages([])
-      setMessagesConversationId(null)
-      return undefined
+      queueMicrotask(() => {
+        setMessages([])
+        setMessagesConversationId(null)
+      })
+      return
     }
 
     let active = true
-    setIsLoadingMessages(true)
-    setMessageError('')
-
-    getMessages(selectedConversation.id)
-      .then(({ messages: result }) => {
+    const loadMessageHistory = async () => {
+      setIsLoadingMessages(true)
+      setMessageError('')
+      try {
+        const { messages: result } = await getMessages(selectedConversation.id)
         if (active) {
           const sortedMessages = [...(result || [])].sort(compareCanonicalMessages)
           setMessages(sortedMessages)
@@ -380,7 +383,6 @@ function ChatPage() {
 
           if (sortedMessages.length > 0) {
             const newestMsg = sortedMessages[sortedMessages.length - 1]
-
             // Mark read locally and send POST /read via queueActiveMessageRead
             queueActiveMessageRead(selectedConversation.id, newestMsg.id, newestMsg.created_at)
           } else {
@@ -393,17 +395,17 @@ function ChatPage() {
             )
           }
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (active) {
           setMessageError(formatError(error, 'Unable to load message history.'))
           setMessagesConversationId(selectedConversation.id)
         }
-      })
-      .finally(() => {
+      } finally {
         if (active) setIsLoadingMessages(false)
-      })
+      }
+    }
 
+    loadMessageHistory()
     return () => { active = false }
   }, [selectedConversation?.id])
 
@@ -676,7 +678,7 @@ function ChatPage() {
     : (socketStatus === 'connected' ? 'Real-time connection active' : socketStatus)
 
   return (
-    <section className="mx-auto flex h-[calc(100dvh-57px)] sm:h-[calc(100vh-73px)] max-w-7xl overflow-hidden bg-white shadow-[0_18px_50px_rgba(25,60,52,0.08)] lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-2xl lg:border lg:border-[#dbe5e1]">
+    <section className="mx-auto flex h-[calc(100dvh-57px)] sm:h-[calc(100vh-73px)] max-w-7xl overflow-hidden bg-glass-card shadow-glass lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-2xl lg:border lg:border-line-glass">
       {/* Workspace Rail */}
       <WorkspaceSelector
         memberships={memberships}
@@ -689,23 +691,23 @@ function ChatPage() {
       />
 
       {/* Primary Sidebar: Either DMs or Organization Channels */}
-      <aside className={`w-full sm:max-w-sm shrink-0 flex-col border-r border-[#dbe5e1] bg-[#fbfcfc] ${selectedConversation ? 'hidden sm:flex' : 'flex flex-1 sm:flex-initial'}`}>
+      <aside className={`w-full sm:max-w-sm shrink-0 flex-col border-r border-line-glass bg-glass-sidebar ${selectedConversation ? 'hidden sm:flex' : 'flex flex-1 sm:flex-initial'}`}>
         {activeWorkspace === null ? (
           /* Direct Messages Sidebar */
           <>
-            <div className="border-b border-[#dbe5e1] px-3.5 sm:px-5 py-3.5 sm:py-5">
-              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-[#0f766e]">
+            <div className="border-b border-line-glass px-3.5 sm:px-5 py-3.5 sm:py-5 bg-glass-header backdrop-blur-md">
+              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-brand">
                 Direct Messages
               </p>
-              <h1 className="mt-1 truncate text-base sm:text-lg font-semibold text-[#172321]">{user?.name}</h1>
-              <p className="truncate text-xs sm:text-sm text-[#60736e]">{user?.email}</p>
+              <h1 className="mt-1 truncate text-base sm:text-lg font-semibold text-txt-primary">{user?.name}</h1>
+              <p className="truncate text-xs sm:text-sm text-txt-muted">{user?.email}</p>
             </div>
             <div className="flex items-center justify-between px-3.5 sm:px-5 py-3 sm:py-4">
-              <h2 className="font-semibold text-sm sm:text-base text-[#172321]">Conversations</h2>
+              <h2 className="font-semibold text-sm sm:text-base text-txt-primary">Conversations</h2>
               <button
                 type="button"
                 onClick={() => setIsNewChatOpen(true)}
-                className="rounded-lg bg-[#0f766e] px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-white transition hover:bg-[#0b5f59]"
+                className="rounded-xl bg-brand px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-white transition hover:bg-brand-hover shadow-xs"
               >
                 + New Chat
               </button>
@@ -746,16 +748,16 @@ function ChatPage() {
       </aside>
 
       {/* Chat Window */}
-      <main className={`min-w-0 flex-1 flex-col bg-[#eef4f2] ${selectedConversation ? 'flex' : 'hidden sm:flex'}`}>
+      <main className={`min-w-0 flex-1 flex-col bg-glass-chat ${selectedConversation ? 'flex' : 'hidden sm:flex'}`}>
         {selectedConversation ? (
           <>
-            <header className="flex items-center justify-between border-b border-[#dbe5e1] bg-white px-3.5 py-3 sm:px-8 sm:py-4">
+            <header className="flex items-center justify-between border-b border-line-glass bg-glass-header backdrop-blur-md px-3.5 py-3 sm:px-8 sm:py-4">
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 {/* Back button on mobile */}
                 <button
                   type="button"
                   onClick={() => handleSelectConversation(null)}
-                  className="sm:hidden -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#60736e] hover:bg-[#edf5f2] active:bg-[#d9f0eb]"
+                  className="sm:hidden -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-txt-muted hover:bg-brand-soft hover:text-brand active:bg-brand-selected"
                   aria-label="Back to conversations"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5">
@@ -763,16 +765,16 @@ function ChatPage() {
                   </svg>
                 </button>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold text-sm sm:text-base text-[#172321] truncate">
+                  <h2 className="font-semibold text-sm sm:text-base text-txt-primary truncate">
                     {participantLabel}
                   </h2>
-                  <p className="text-[11px] sm:text-xs text-[#60736e] truncate">
+                  <p className="text-[11px] sm:text-xs text-txt-muted truncate">
                     {descriptionLabel}
                   </p>
                 </div>
               </div>
               <div className="shrink-0 flex items-center gap-2 pl-2">
-                <span className="hidden sm:inline-block rounded-full bg-[#edf5f2] px-3 py-1 text-xs font-medium text-[#48615c]">
+                <span className="hidden sm:inline-block rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
                   {isOrgChannel ? 'Channel' : 'Direct Message'}
                 </span>
               </div>
@@ -792,13 +794,13 @@ function ChatPage() {
           </>
         ) : (
           <div className="m-auto px-6 sm:px-8 text-center">
-            <div className="mx-auto grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-[#d9f0eb] text-xl sm:text-2xl text-[#0f766e]" aria-hidden="true">
+            <div className="mx-auto grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-brand-soft text-xl sm:text-2xl text-brand shadow-xs" aria-hidden="true">
               ✦
             </div>
-            <h2 className="mt-4 sm:mt-5 text-xl sm:text-2xl font-semibold text-[#172321]">
+            <h2 className="mt-4 sm:mt-5 text-xl sm:text-2xl font-semibold text-txt-primary">
               {activeWorkspace ? `Welcome to ${activeWorkspace.organization_name}` : 'Choose a conversation'}
             </h2>
-            <p className="mt-2 max-w-sm text-xs sm:text-sm leading-6 text-[#60736e]">
+            <p className="mt-2 max-w-sm text-xs sm:text-sm leading-6 text-txt-muted">
               {activeWorkspace
                 ? 'Select a channel from the sidebar or create a new channel to start messaging.'
                 : 'Select a conversation from the sidebar or start one with a teammate.'}

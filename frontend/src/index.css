@@ -1,13 +1,88 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@500;600;700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+
+  --color-glass-app: var(--bg-app);
+  --color-glass-rail: var(--bg-rail);
+  --color-glass-sidebar: var(--bg-sidebar);
+  --color-glass-chat: var(--bg-chat);
+  --color-glass-header: var(--bg-header);
+  --color-glass-card: var(--bg-card);
+  --color-glass-modal: var(--bg-modal);
+  --color-glass-composer: var(--bg-composer);
+
+  --color-brand: var(--accent-primary);
+  --color-brand-hover: var(--accent-hover);
+  --color-brand-active: var(--accent-active);
+  --color-brand-soft: var(--accent-soft);
+  --color-brand-selected: var(--accent-selected);
+
+  --color-txt-primary: var(--text-primary);
+  --color-txt-secondary: var(--text-secondary);
+  --color-txt-muted: var(--text-muted);
+  --color-txt-timestamp: var(--text-timestamp);
+
+  --color-line-glass: var(--glass-border);
+  --color-line-subtle: var(--glass-border-subtle);
+
+  --color-bubble-mine-bg: var(--bubble-mine-bg);
+  --color-bubble-mine-txt: var(--bubble-mine-txt);
+  --color-bubble-mine-meta: var(--bubble-mine-meta);
+  --color-bubble-other-bg: var(--bubble-other-bg);
+  --color-bubble-other-txt: var(--bubble-other-txt);
+  --color-bubble-other-border: var(--bubble-other-border);
+  --color-bubble-other-meta: var(--bubble-other-meta);
+}
 
 :root {
   font-family: 'DM Sans', sans-serif;
-  color: #172321;
-  background: #f4f7f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+
+  /* GlassFlow Light Colors */
+  --bg-app: #f2f6f4;
+  --bg-rail: #e6eee9;
+  --bg-sidebar: rgba(251, 253, 252, 0.85);
+  --bg-chat: rgba(238, 244, 241, 0.65);
+  --bg-header: rgba(255, 255, 255, 0.85);
+  --bg-card: #ffffff;
+  --bg-modal: rgba(255, 255, 255, 0.9);
+  --bg-composer: rgba(255, 255, 255, 0.88);
+
+  /* Borders & Dividers */
+  --glass-border: rgba(215, 227, 222, 0.75);
+  --glass-border-subtle: rgba(215, 227, 222, 0.45);
+
+  /* Shadows */
+  --shadow-glass: 0 20px 50px rgba(20, 50, 44, 0.08);
+  --shadow-composer: 0 10px 30px rgba(15, 118, 110, 0.08);
+  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.04);
+
+  /* Text & Content */
+  --text-primary: #14211e;
+  --text-secondary: #425752;
+  --text-muted: #5e736e;
+  --text-timestamp: #78908a;
+
+  /* Brand / Teal Accent */
+  --accent-primary: #0f766e;
+  --accent-hover: #0d655e;
+  --accent-active: #094b46;
+  --accent-soft: rgba(15, 118, 110, 0.1);
+  --accent-selected: #d7efe9;
+
+  /* Message Bubbles */
+  --bubble-mine-bg: #0f766e;
+  --bubble-mine-txt: #ffffff;
+  --bubble-mine-meta: #c4e8e1;
+  --bubble-other-bg: rgba(255, 255, 255, 0.92);
+  --bubble-other-txt: #14211e;
+  --bubble-other-border: rgba(220, 231, 227, 0.85);
+  --bubble-other-meta: #78908a;
 }
 
 body {
@@ -15,6 +90,33 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
 }
-h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
-button, input, textarea, select { font: inherit; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+/* Custom subtle scrollbars for GlassFlow */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 118, 110, 0.18);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 118, 110, 0.35);
+}

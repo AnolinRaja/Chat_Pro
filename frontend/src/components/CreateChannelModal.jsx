@@ -21,13 +21,15 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        setName('')
+        setDescription('')
+        setError('')
+        onClose()
+      }
     }
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown)
-      setName('')
-      setDescription('')
-      setError('')
     }
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
@@ -67,24 +69,24 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#172321]/30 p-0 sm:p-6 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-6 backdrop-blur-md transition-opacity"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isSubmitting) onClose()
       }}
     >
       <div
-        className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-[#dbe5e1] bg-white shadow-2xl overflow-hidden"
+        className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-modal shadow-glass backdrop-blur-xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-channel-title"
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#edf2f0] p-4 sm:p-6">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-glass p-4 sm:p-6">
           <div className="min-w-0">
-            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[#0f766e] truncate">
+            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-brand truncate">
               {organization?.organization_name || 'Organization'}
             </p>
-            <h2 id="create-channel-title" className="mt-1 text-xl sm:text-2xl font-semibold text-[#172321]">
+            <h2 id="create-channel-title" className="mt-1 text-xl sm:text-2xl font-semibold text-txt-primary">
               Create a Channel
             </h2>
           </div>
@@ -93,7 +95,7 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
             onClick={onClose}
             disabled={isSubmitting}
             aria-label="Close create channel dialog"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-[#60736e] hover:bg-[#edf5f2]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-txt-muted hover:bg-brand-soft hover:text-txt-primary transition-colors"
           >
             ✕
           </button>
@@ -104,11 +106,11 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
             <FormMessage>{error}</FormMessage>
 
             <div>
-              <label htmlFor="channel-name" className="block text-sm font-medium text-[#172321]">
+              <label htmlFor="channel-name" className="block text-sm font-medium text-txt-primary">
                 Channel Name
               </label>
               <div className="relative mt-1.5 flex items-center">
-                <span className="absolute left-3.5 text-base font-bold text-[#60736e]">#</span>
+                <span className="absolute left-3.5 text-base font-bold text-txt-muted">#</span>
                 <input
                   id="channel-name"
                   type="text"
@@ -118,17 +120,17 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
                   onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
                   placeholder="e.g. general, announcements"
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border border-[#cddbd6] pl-8 pr-4 py-2.5 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc] disabled:bg-[#f4f7f6]"
+                  className="w-full rounded-xl border border-line-glass bg-glass-card pl-8 pr-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft disabled:bg-line-subtle"
                 />
               </div>
-              <p className="mt-1 text-xs text-[#60736e]">
+              <p className="mt-1 text-xs text-txt-muted">
                 Use lowercase letters, numbers, and hyphens.
               </p>
             </div>
 
             <div>
-              <label htmlFor="channel-description" className="block text-sm font-medium text-[#172321]">
-                Description <span className="text-xs text-[#60736e] font-normal">(optional)</span>
+              <label htmlFor="channel-description" className="block text-sm font-medium text-txt-primary">
+                Description <span className="text-xs text-txt-muted font-normal">(optional)</span>
               </label>
               <textarea
                 id="channel-description"
@@ -137,24 +139,24 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What is this channel about?"
                 disabled={isSubmitting}
-                className="mt-1.5 w-full rounded-xl border border-[#cddbd6] px-4 py-2.5 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc] disabled:bg-[#f4f7f6] resize-none"
+                className="mt-1.5 w-full rounded-xl border border-line-glass bg-glass-card px-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft disabled:bg-line-subtle resize-none"
               />
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t border-[#edf2f0] p-4 sm:p-6 bg-white shrink-0">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t border-line-glass p-4 sm:p-6 bg-glass-card shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="flex min-h-[44px] items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-[#60736e] hover:bg-[#edf5f2] disabled:opacity-50"
+              className="flex min-h-[44px] items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-txt-muted hover:bg-brand-soft hover:text-txt-primary disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex min-h-[44px] items-center justify-center rounded-lg bg-[#0f766e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b5f59] disabled:opacity-50"
+              className="flex min-h-[44px] items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover active:bg-brand-active disabled:opacity-50 shadow-xs"
             >
               {isSubmitting ? 'Creating...' : 'Create Channel'}
             </button>

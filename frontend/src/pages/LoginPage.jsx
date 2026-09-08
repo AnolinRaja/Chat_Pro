@@ -83,7 +83,7 @@ function LoginPage() {
         >
           <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handle2SVSubmit} noValidate>
             <FormMessage>{error}</FormMessage>
-            <label className="block text-sm font-medium text-[#172321]">
+            <label className="block text-sm font-medium text-txt-primary">
               {isRecoveryMode ? 'Emergency Recovery Code' : '6-Digit Authenticator Code'}
               <input
                 type="text"
@@ -92,19 +92,19 @@ function LoginPage() {
                 placeholder={isRecoveryMode ? 'e.g. 1a2b-3c4d' : '123456'}
                 maxLength={isRecoveryMode ? 20 : 8}
                 autoFocus
-                className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-3 text-center text-base sm:text-lg font-mono font-bold tracking-widest outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                className="mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-3 text-center text-base sm:text-lg font-mono font-bold tracking-widest outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
               />
             </label>
 
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
             >
               {isSubmitting ? 'Verifying...' : 'Verify & Sign In'}
             </button>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-[#60736e] pt-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-txt-muted pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -112,7 +112,7 @@ function LoginPage() {
                   setTwoFactorCode('')
                   setError('')
                 }}
-                className="font-medium text-[#0f766e] hover:underline"
+                className="font-medium text-brand hover:underline"
               >
                 {isRecoveryMode ? '← Use Authenticator App Code' : "Can't access your authenticator? Use recovery code"}
               </button>
@@ -123,7 +123,7 @@ function LoginPage() {
                   setTwoFactorCode('')
                   setError('')
                 }}
-                className="text-[#60736e] hover:underline"
+                className="text-txt-muted hover:underline"
               >
                 Back to Sign in
               </button>
@@ -167,14 +167,14 @@ function LoginPage() {
   return (
     <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl items-center gap-8 lg:gap-12 px-4 py-8 sm:px-8 sm:py-12 lg:grid-cols-[1.1fr_0.9fr]">
       <div className="max-w-xl">
-        <p className="mb-3 sm:mb-5 text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-[#0f766e]">Your conversations, in focus</p>
-        <h2 className="text-3xl font-semibold leading-[1.1] tracking-tight text-[#172321] sm:text-5xl lg:text-7xl">A calmer place to stay connected.</h2>
-        <p className="mt-4 sm:mt-6 max-w-md text-sm sm:text-lg leading-6 sm:leading-8 text-[#60736e]">ChatPRO keeps the people and conversations that matter close, clear, and easy to reach.</p>
+        <p className="mb-3 sm:mb-5 text-xs sm:text-sm font-semibold uppercase tracking-[0.18em] text-brand">Your conversations, in focus</p>
+        <h2 className="text-3xl font-semibold leading-[1.1] tracking-tight text-txt-primary sm:text-5xl lg:text-7xl">A calmer place to stay connected.</h2>
+        <p className="mt-4 sm:mt-6 max-w-md text-sm sm:text-lg leading-6 sm:leading-8 text-txt-muted">ChatPRO keeps the people and conversations that matter close, clear, and easy to reach.</p>
       </div>
       <AuthCard eyebrow="Welcome back" title="Sign in to ChatPRO" description="Continue to your conversations.">
         <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleSubmit} noValidate>
           <FormMessage>{error}</FormMessage>
-          <label className="block text-sm font-medium text-[#172321]">
+          <label className="block text-sm font-medium text-txt-primary">
             Email
             <input
               name="email"
@@ -183,10 +183,10 @@ function LoginPage() {
               onChange={updateField}
               autoComplete="email"
               placeholder="you@example.com"
-              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
             />
           </label>
-          <label className="block text-sm font-medium text-[#172321]">
+          <label className="block text-sm font-medium text-txt-primary">
             Password
             <input
               name="password"
@@ -195,25 +195,25 @@ function LoginPage() {
               onChange={updateField}
               autoComplete="current-password"
               placeholder="Enter your password"
-              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
             />
           </label>
           <p className="text-right text-xs sm:text-sm">
-            <Link to="/forgot-password" className="font-semibold text-[#0f766e] hover:underline">
+            <Link to="/forgot-password" className="font-semibold text-brand hover:underline">
               Forgot Password?
             </Link>
           </p>
           <button
             disabled={isSubmitting}
             type="submit"
-            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
           >
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-        <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-[#60736e]">
+        <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-txt-muted">
           New to ChatPRO?{' '}
-          <Link to="/register" className="font-semibold text-[#0f766e] hover:underline">
+          <Link to="/register" className="font-semibold text-brand hover:underline">
             Create an account
           </Link>
         </p>

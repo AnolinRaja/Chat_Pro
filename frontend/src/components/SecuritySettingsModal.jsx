@@ -145,25 +145,25 @@ function SecuritySettingsModal({ isOpen, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 backdrop-blur-xs" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}>
-      <div className="relative flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl sm:rounded-2xl border border-[#cddbd6] bg-white shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="security-modal-title">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4 backdrop-blur-md" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+      <div className="relative flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-card backdrop-blur-xl shadow-glass overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="security-modal-title">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-[#e2ece9] px-4 py-3.5 sm:px-6 sm:py-4 bg-white">
+        <div className="flex shrink-0 items-center justify-between border-b border-line-subtle px-4 py-3.5 sm:px-6 sm:py-4 bg-surface-elevated/80 backdrop-blur-md">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-[#0f766e]/10 text-[#0f766e]">
+            <span className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 sm:h-5 sm:w-5">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
             </span>
             <div className="min-w-0">
-              <h3 id="security-modal-title" className="text-base sm:text-lg font-bold tracking-tight text-[#172321] truncate">Security & Two-Step Verification</h3>
-              <p className="text-[11px] sm:text-xs text-[#60736e] truncate">Protect your ChatPRO account with authenticator-based 2SV</p>
+              <h3 id="security-modal-title" className="text-base sm:text-lg font-bold tracking-tight text-txt-primary truncate">Security & Two-Step Verification</h3>
+              <p className="text-[11px] sm:text-xs text-txt-muted truncate">Protect your ChatPRO account with authenticator-based 2SV</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg p-1.5 text-[#60736e] hover:bg-[#edf5f2] hover:text-[#172321]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg p-1.5 text-txt-muted hover:bg-surface-hover hover:text-txt-primary transition-colors"
             aria-label="Close modal"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -188,42 +188,42 @@ function SecuritySettingsModal({ isOpen, onClose }) {
         {/* Scrollable Body Content */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
           {statusLoading ? (
-            <div className="py-12 text-center text-sm text-[#60736e]">Loading security settings...</div>
+            <div className="py-12 text-center text-sm text-txt-muted">Loading security settings...</div>
           ) : isSettingUp && setupData ? (
             /* SETUP WIZARD */
             <div className="space-y-5 sm:space-y-6">
               <div>
-                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#0f766e]">Step 1 of 3</span>
-                <h4 className="text-sm sm:text-base font-semibold text-[#172321]">Scan QR Code in Authenticator App</h4>
-                <p className="mt-1 text-xs text-[#60736e] leading-relaxed">
+                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-brand">Step 1 of 3</span>
+                <h4 className="text-sm sm:text-base font-semibold text-txt-primary">Scan QR Code in Authenticator App</h4>
+                <p className="mt-1 text-xs text-txt-muted leading-relaxed">
                   Use Google Authenticator, Apple Passwords, Microsoft Authenticator, Authy, or 1Password. (Authenticator apps work offline and do not rely on email).
                 </p>
               </div>
 
               {/* QR Code & Key Box */}
-              <div className="flex flex-col items-center justify-center gap-3.5 rounded-xl border border-[#d2e0dc] bg-[#f8faf9] p-4 sm:flex-row sm:gap-4 sm:p-5">
+              <div className="flex flex-col items-center justify-center gap-3.5 rounded-xl border border-line-subtle bg-surface-elevated/60 p-4 sm:flex-row sm:gap-4 sm:p-5">
                 <img
                   src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(setupData.otpauth_uri)}`}
                   alt="2SV QR Code"
-                  className="h-32 w-32 sm:h-36 sm:w-36 rounded-lg border border-[#cddbd6] bg-white p-1.5 shadow-xs shrink-0"
+                  className="h-32 w-32 sm:h-36 sm:w-36 rounded-lg border border-line-subtle bg-white p-1.5 shadow-xs shrink-0"
                 />
                 <div className="flex flex-1 flex-col gap-2 text-left min-w-0 w-full">
-                  <span className="text-xs font-medium text-[#48615c]">Can&apos;t scan QR code? Enter key manually:</span>
+                  <span className="text-xs font-medium text-txt-secondary">Can&apos;t scan QR code? Enter key manually:</span>
                   <div className="flex items-center gap-2 max-w-full">
-                    <code className="min-w-0 flex-1 truncate rounded-md border border-[#cddbd6] bg-white px-2.5 py-1.5 font-mono text-xs font-bold text-[#172321] select-all">
+                    <code className="min-w-0 flex-1 truncate rounded-md border border-line-subtle bg-white px-2.5 py-1.5 font-mono text-xs font-bold text-txt-primary select-all">
                       {setupData.secret}
                     </code>
                     <button
                       type="button"
                       onClick={copySecret}
-                      className="shrink-0 rounded-md bg-[#0f766e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0b5f59]"
+                      className="shrink-0 rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-brand-on hover:bg-brand-hover transition-colors"
                     >
                       {copiedKey ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
                   <a
                     href={setupData.otpauth_uri}
-                    className="mt-1 text-xs font-medium text-[#0f766e] hover:underline"
+                    className="mt-1 text-xs font-medium text-brand hover:underline"
                   >
                     Open in Authenticator app →
                   </a>
@@ -232,15 +232,15 @@ function SecuritySettingsModal({ isOpen, onClose }) {
 
               {/* Recovery Codes Step */}
               <div>
-                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#0f766e]">Step 2 of 3</span>
-                <h4 className="text-sm sm:text-base font-semibold text-[#172321]">Save Emergency Backup Recovery Codes</h4>
-                <p className="mt-1 text-xs text-[#60736e] leading-relaxed">
+                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-brand">Step 2 of 3</span>
+                <h4 className="text-sm sm:text-base font-semibold text-txt-primary">Save Emergency Backup Recovery Codes</h4>
+                <p className="mt-1 text-xs text-txt-muted leading-relaxed">
                   If you ever lose access to your authenticator app, these single-use codes are the only way to sign in. Save them in a secure password manager.
                 </p>
-                <div className="mt-3 rounded-xl border border-[#d2e0dc] bg-[#f8faf9] p-3 sm:p-4">
-                  <div className="grid grid-cols-2 gap-1.5 font-mono text-xs font-semibold text-[#172321] sm:grid-cols-4 sm:gap-2">
+                <div className="mt-3 rounded-xl border border-line-subtle bg-surface-elevated/60 p-3 sm:p-4">
+                  <div className="grid grid-cols-2 gap-1.5 font-mono text-xs font-semibold text-txt-primary sm:grid-cols-4 sm:gap-2">
                     {setupData.recovery_codes.map((code) => (
-                      <div key={code} className="rounded bg-white p-1.5 text-center border border-[#e2ece9] text-[11px] sm:text-xs">
+                      <div key={code} className="rounded bg-white p-1.5 text-center border border-line-subtle text-[11px] sm:text-xs">
                         {code}
                       </div>
                     ))}
@@ -249,7 +249,7 @@ function SecuritySettingsModal({ isOpen, onClose }) {
                     <button
                       type="button"
                       onClick={copyRecoveryCodes}
-                      className="w-full sm:w-auto rounded-lg border border-[#cddbd6] bg-white px-3 py-2 text-xs font-semibold text-[#0f766e] hover:bg-[#edf5f2]"
+                      className="w-full sm:w-auto rounded-lg border border-line-subtle bg-white px-3 py-2 text-xs font-semibold text-brand hover:bg-surface-hover transition-colors"
                     >
                       {copiedCodes ? 'Codes Copied!' : 'Copy All Recovery Codes'}
                     </button>
@@ -260,9 +260,9 @@ function SecuritySettingsModal({ isOpen, onClose }) {
               {/* Confirmation Step */}
               <form onSubmit={handleConfirmSetup} className="space-y-4 pt-2">
                 <div>
-                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#0f766e]">Step 3 of 3</span>
-                  <h4 className="text-sm sm:text-base font-semibold text-[#172321]">Confirm Verification Code</h4>
-                  <p className="mt-1 text-xs text-[#60736e]">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-brand">Step 3 of 3</span>
+                  <h4 className="text-sm sm:text-base font-semibold text-txt-primary">Confirm Verification Code</h4>
+                  <p className="mt-1 text-xs text-txt-muted">
                     Enter the current 6-digit code displayed in your authenticator app to complete setup:
                   </p>
                   <input
@@ -272,22 +272,22 @@ function SecuritySettingsModal({ isOpen, onClose }) {
                     placeholder="123456"
                     maxLength={8}
                     autoFocus
-                    className="mt-2 w-full rounded-lg border border-[#cddbd6] px-3 py-2.5 text-center font-mono text-base sm:text-lg font-bold tracking-widest outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                    className="mt-2 w-full rounded-lg border border-line-subtle px-3 py-2.5 text-center font-mono text-base sm:text-lg font-bold tracking-widest outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 bg-surface-elevated text-txt-primary"
                   />
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-[#e2ece9]">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-3 border-t border-line-subtle">
                   <button
                     type="button"
                     onClick={() => setIsSettingUp(false)}
-                    className="flex min-h-[44px] items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-[#48615c] hover:bg-[#edf5f2]"
+                    className="flex min-h-[44px] items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-txt-secondary hover:bg-surface-hover"
                   >
                     Cancel
                   </button>
                   <button
                     disabled={actionLoading}
                     type="submit"
-                    className="flex min-h-[44px] items-center justify-center rounded-lg bg-[#0f766e] px-5 py-2 text-sm font-semibold text-white hover:bg-[#0b5f59] disabled:opacity-60"
+                    className="flex min-h-[44px] items-center justify-center rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-brand-on hover:bg-brand-hover transition-colors disabled:opacity-60"
                   >
                     {actionLoading ? 'Activating...' : 'Confirm & Activate 2SV'}
                   </button>
@@ -301,33 +301,33 @@ function SecuritySettingsModal({ isOpen, onClose }) {
                 <strong className="font-semibold">Security Warning:</strong> Disabling Two-Step Verification makes your account reliant on password authentication alone. To proceed, please confirm your credentials.
               </div>
 
-              <label className="block text-sm font-medium text-[#172321]">
+              <label className="block text-sm font-medium text-txt-primary">
                 Current Account Password
                 <input
                   type="password"
                   value={disablePassword}
                   onChange={(e) => setDisablePassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="mt-1.5 w-full rounded-lg border border-[#cddbd6] px-3 py-2.5 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                  className="mt-1.5 w-full rounded-lg border border-line-subtle px-3 py-2.5 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 bg-surface-elevated text-txt-primary"
                 />
               </label>
 
-              <label className="block text-sm font-medium text-[#172321]">
+              <label className="block text-sm font-medium text-txt-primary">
                 Current 6-Digit Authenticator Code (or Recovery Code)
                 <input
                   type="text"
                   value={disableCode}
                   onChange={(e) => setDisableCode(e.target.value)}
                   placeholder="e.g. 123456 or xxxx-xxxx"
-                  className="mt-1.5 w-full rounded-lg border border-[#cddbd6] px-3 py-2.5 font-mono text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                  className="mt-1.5 w-full rounded-lg border border-line-subtle px-3 py-2.5 font-mono text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 bg-surface-elevated text-txt-primary"
                 />
               </label>
 
-              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-4 border-t border-[#e2ece9]">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 pt-4 border-t border-line-subtle">
                 <button
                   type="button"
                   onClick={() => setIsDisabling(false)}
-                  className="flex min-h-[44px] items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-[#48615c] hover:bg-[#edf5f2]"
+                  className="flex min-h-[44px] items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-txt-secondary hover:bg-surface-hover"
                 >
                   Cancel
                 </button>
@@ -343,12 +343,12 @@ function SecuritySettingsModal({ isOpen, onClose }) {
           ) : (
             /* STATUS DASHBOARD */
             <div className="space-y-5 sm:space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#d2e0dc] bg-[#f8faf9] p-3.5 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-line-subtle bg-surface-elevated/60 p-3.5 sm:p-4">
                 <div>
-                  <span className="text-xs font-semibold text-[#60736e]">Current Status</span>
+                  <span className="text-xs font-semibold text-txt-muted">Current Status</span>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${twoFactorEnabled ? 'bg-emerald-500' : 'bg-gray-400'}`} />
-                    <span className="text-sm sm:text-base font-bold text-[#172321]">
+                    <span className="text-sm sm:text-base font-bold text-txt-primary">
                       {twoFactorEnabled ? 'Two-Step Verification is ON' : 'Two-Step Verification is OFF'}
                     </span>
                   </div>
@@ -366,19 +366,19 @@ function SecuritySettingsModal({ isOpen, onClose }) {
 
               {twoFactorEnabled ? (
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-[#e2ece9] p-3.5 sm:p-4 text-xs text-[#48615c] leading-relaxed">
+                  <div className="rounded-xl border border-line-subtle p-3.5 sm:p-4 text-xs text-txt-secondary leading-relaxed">
                     <p>
                       Your account requires a 6-digit code from your authenticator app each time you sign in.
                     </p>
-                    <p className="mt-2 font-medium text-[#172321]">
-                      Backup Recovery Codes Remaining: <span className="font-bold text-[#0f766e]">{recoveryCodesRemaining}</span>
+                    <p className="mt-2 font-medium text-txt-primary">
+                      Backup Recovery Codes Remaining: <span className="font-bold text-brand">{recoveryCodesRemaining}</span>
                     </p>
                   </div>
                   <div className="flex justify-end pt-2">
                     <button
                       type="button"
                       onClick={() => setIsDisabling(true)}
-                      className="w-full sm:w-auto flex min-h-[44px] items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                      className="w-full sm:w-auto flex min-h-[44px] items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
                     >
                       Disable Two-Step Verification
                     </button>
@@ -386,7 +386,7 @@ function SecuritySettingsModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-xs text-[#60736e] leading-relaxed">
+                  <p className="text-xs text-txt-muted leading-relaxed">
                     Enhance your account security by requiring an authenticator app code during sign in. Authenticator apps (such as Google Authenticator or Apple Passwords) generate codes locally on your device without relying on email or SMS.
                   </p>
                   <div className="flex justify-end pt-2">
@@ -394,7 +394,7 @@ function SecuritySettingsModal({ isOpen, onClose }) {
                       type="button"
                       disabled={setupLoading}
                       onClick={handleStartSetup}
-                      className="w-full sm:w-auto flex min-h-[44px] items-center justify-center rounded-lg bg-[#0f766e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0b5f59] shadow-sm disabled:opacity-60"
+                      className="w-full sm:w-auto flex min-h-[44px] items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-brand-on hover:bg-brand-hover shadow-xs transition-colors disabled:opacity-60"
                     >
                       {setupLoading ? 'Preparing Setup...' : 'Enable Two-Step Verification'}
                     </button>

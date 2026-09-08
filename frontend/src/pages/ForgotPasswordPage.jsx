@@ -78,7 +78,7 @@ function ForgotPasswordPage() {
         {step === 'password' && (
           <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleReset} noValidate>
             <FormMessage>{error}</FormMessage>
-            <label className="block text-sm font-medium text-[#172321]">
+            <label className="block text-sm font-medium text-txt-primary">
               New password
               <input
                 type="password"
@@ -86,10 +86,10 @@ function ForgotPasswordPage() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
-                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
               />
             </label>
-            <label className="block text-sm font-medium text-[#172321]">
+            <label className="block text-sm font-medium text-txt-primary">
               Confirm password
               <input
                 type="password"
@@ -97,21 +97,21 @@ function ForgotPasswordPage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 autoComplete="new-password"
                 placeholder="Repeat password"
-                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
               />
             </label>
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
             >
               {isSubmitting ? 'Updating...' : 'Set new password'}
             </button>
           </form>
         )}
         {step === 'complete' && (
-          <p className="mt-5 sm:mt-7 text-center text-xs sm:text-sm text-[#60736e]">
-            <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+          <p className="mt-5 sm:mt-7 text-center text-xs sm:text-sm text-txt-muted">
+            <Link to="/login" className="font-semibold text-brand hover:underline">
               Return to sign in
             </Link>
           </p>
@@ -120,7 +120,7 @@ function ForgotPasswordPage() {
           <>
             <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleSubmit} noValidate>
               <FormMessage>{error}</FormMessage>
-              <label className="block text-sm font-medium text-[#172321]">
+              <label className="block text-sm font-medium text-txt-primary">
                 Email
                 <input
                   name="email"
@@ -129,19 +129,19 @@ function ForgotPasswordPage() {
                   onChange={(event) => { setEmail(event.target.value); setError('') }}
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+                  className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
                 />
               </label>
               <button
                 disabled={isSubmitting}
                 type="submit"
-                className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0f766e] px-4 py-3 font-semibold text-white hover:bg-[#0b5f59] active:bg-[#084b46] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
               >
                 {isSubmitting ? 'Sending...' : 'Continue'}
               </button>
             </form>
-            <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-[#60736e]">
-              <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+            <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-txt-muted">
+              <Link to="/login" className="font-semibold text-brand hover:underline">
                 Return to sign in
               </Link>
             </p>

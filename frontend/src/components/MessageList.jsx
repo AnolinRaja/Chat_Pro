@@ -23,9 +23,9 @@ function MessageList({ messages, currentUserId, isLoading, error }) {
     }
   }, [messages, currentUserId])
 
-  if (isLoading) return <div className="grid flex-1 place-items-center text-sm text-[#60736e]">Loading messages...</div>
-  if (error) return <div role="alert" className="grid flex-1 place-items-center px-6 text-center text-sm text-[#a63d32]">{error}</div>
-  if (!messages.length) return <div className="grid flex-1 place-items-center px-6 text-center text-sm text-[#60736e]">No messages yet. Send the first message.</div>
+  if (isLoading) return <div className="grid flex-1 place-items-center text-sm text-txt-muted">Loading messages...</div>
+  if (error) return <div role="alert" className="grid flex-1 place-items-center px-6 text-center text-sm text-red-600">{error}</div>
+  if (!messages.length) return <div className="grid flex-1 place-items-center px-6 text-center text-sm text-txt-muted">No messages yet. Send the first message.</div>
 
   return (
     <div

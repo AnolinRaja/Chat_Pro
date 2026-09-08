@@ -22,7 +22,7 @@ function WorkspaceSelector({
   return (
     <nav
       aria-label="Workspaces"
-      className={`flex w-14 sm:w-16 shrink-0 flex-col items-center border-r border-[#dbe5e1] bg-[#edf3f1] py-3 sm:py-4 gap-2 sm:gap-2.5 ${className}`}
+      className={`flex w-14 sm:w-16 shrink-0 flex-col items-center border-r border-line-glass bg-glass-rail py-3 sm:py-4 gap-2 sm:gap-2.5 ${className}`}
     >
       {/* Direct Messages Button */}
       <button
@@ -32,8 +32,8 @@ function WorkspaceSelector({
         aria-label="Direct Messages"
         className={`relative grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-2xl text-xs font-bold transition-all ${
           isDMsActive
-            ? 'bg-[#0f766e] text-white shadow-md shadow-[#0f766e]/20 rounded-xl'
-            : 'bg-white text-[#48615c] border border-[#d2e0dc] hover:bg-[#d9f0eb] hover:text-[#0f766e] hover:rounded-xl'
+            ? 'bg-brand text-white shadow-md shadow-brand/20 rounded-xl'
+            : 'bg-glass-card text-txt-secondary border border-line-glass hover:bg-brand-selected hover:text-brand hover:rounded-xl'
         }`}
       >
         <svg
@@ -51,14 +51,14 @@ function WorkspaceSelector({
         </svg>
         {isDMsActive && (
           <span
-            className="absolute -left-1 top-2.5 h-5 sm:h-6 w-1 rounded-r-full bg-[#0f766e]"
+            className="absolute -left-1 top-2.5 h-5 sm:h-6 w-1 rounded-r-full bg-brand"
             aria-hidden="true"
           />
         )}
       </button>
 
       {/* Separator */}
-      <div className="h-px w-6 sm:w-8 bg-[#cddbd6] my-0.5" aria-hidden="true" />
+      <div className="h-px w-6 sm:w-8 bg-line-glass my-0.5" aria-hidden="true" />
 
       {/* Organizations List */}
       <div className="flex flex-col items-center gap-2 sm:gap-2.5 overflow-y-auto w-full px-1.5 sm:px-2 max-h-[calc(100vh-250px)]">
@@ -75,14 +75,14 @@ function WorkspaceSelector({
               aria-label={`${membership.organization_name} workspace`}
               className={`relative grid h-10 w-10 sm:h-11 sm:w-11 place-items-center text-xs font-bold uppercase transition-all ${
                 isActive
-                  ? 'bg-[#172321] text-white shadow-md rounded-xl ring-2 ring-[#0f766e]'
-                  : 'bg-white text-[#2d413c] border border-[#d2e0dc] hover:bg-[#d9f0eb] hover:text-[#0f766e] hover:rounded-xl rounded-2xl'
+                  ? 'bg-txt-primary text-white shadow-md rounded-xl ring-2 ring-brand'
+                  : 'bg-glass-card text-txt-secondary border border-line-glass hover:bg-brand-selected hover:text-brand hover:rounded-xl rounded-2xl'
               }`}
             >
               {initials}
               {isActive && (
                 <span
-                  className="absolute -left-1 sm:-left-2 top-2.5 h-5 sm:h-6 w-1 rounded-r-full bg-[#0f766e]"
+                  className="absolute -left-1 sm:-left-2 top-2.5 h-5 sm:h-6 w-1 rounded-r-full bg-brand"
                   aria-hidden="true"
                 />
               )}
@@ -107,7 +107,7 @@ function WorkspaceSelector({
               ? `Organization Requests (${pendingCount} pending)`
               : 'Organization Requests'
           }
-          className="relative grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-2xl border border-[#d2e0dc] bg-white text-[#48615c] transition-all hover:bg-[#d9f0eb] hover:text-[#0f766e] hover:rounded-xl"
+          className="relative grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-2xl border border-line-glass bg-glass-card text-txt-secondary transition-all hover:bg-brand-selected hover:text-brand hover:rounded-xl"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -126,7 +126,7 @@ function WorkspaceSelector({
 
           {pendingCount > 0 && (
             <span
-              className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-4.5 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] sm:text-[10px] font-bold text-white shadow-sm ring-2 ring-[#edf3f1]"
+              className="absolute -top-1.5 -right-1.5 flex h-4.5 min-w-4.5 sm:h-5 sm:min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] sm:text-[10px] font-bold text-white shadow-xs ring-2 ring-glass-rail"
               aria-label={`${pendingCount} pending requests`}
             >
               {pendingCount}
@@ -140,7 +140,7 @@ function WorkspaceSelector({
           onClick={onOpenJoinOrg}
           title="Join an Organization"
           aria-label="Join an Organization"
-          className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-2xl border border-dashed border-[#8eaaa5] bg-white text-[#0f766e] transition-all hover:border-[#0f766e] hover:bg-[#d9f0eb] hover:rounded-xl"
+          className="grid h-10 w-10 sm:h-11 sm:w-11 place-items-center rounded-2xl border border-dashed border-brand/50 bg-glass-card text-brand transition-all hover:border-brand hover:bg-brand-selected hover:rounded-xl"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"

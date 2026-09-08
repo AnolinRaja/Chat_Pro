@@ -74,17 +74,17 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#172321]/30 p-0 sm:p-6 backdrop-blur-xs" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#edf2f0] p-4 sm:p-6 bg-white">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-6 backdrop-blur-md transition-opacity" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-modal shadow-glass backdrop-blur-xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-glass p-4 sm:p-6">
           <div className="min-w-0">
-            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[#0f766e]">New chat</p>
-            <h2 id="new-chat-title" className="mt-1 text-xl sm:text-2xl font-semibold text-[#172321]">Find someone to message</h2>
+            <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-brand">New chat</p>
+            <h2 id="new-chat-title" className="mt-1 text-xl sm:text-2xl font-semibold text-txt-primary">Find someone to message</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close new chat" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-[#60736e] hover:bg-[#edf5f2]">✕</button>
+          <button type="button" onClick={onClose} aria-label="Close new chat" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg text-txt-muted hover:bg-brand-soft hover:text-txt-primary transition-colors">✕</button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
-          <label className="block text-sm font-medium text-[#172321]" htmlFor="user-search">
+          <label className="block text-sm font-medium text-txt-primary" htmlFor="user-search">
             Search people by name or email
             <input
               id="user-search"
@@ -92,14 +92,14 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
               value={query}
               onChange={handleQueryChange}
               placeholder="Search people..."
-              className="mt-2 w-full rounded-xl border border-[#cddbd6] px-3.5 py-2.5 sm:px-4 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-2 w-full rounded-xl border border-line-glass bg-glass-card px-3.5 py-2.5 sm:px-4 sm:py-3 text-base sm:text-sm text-txt-primary placeholder:text-txt-muted outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft"
             />
           </label>
           <div className="mt-4 min-h-32">
             <FormMessage>{error}</FormMessage>
-            {!query.trim() && <p className="py-8 text-center text-xs sm:text-sm text-[#60736e]">Type a name or email to search.</p>}
-            {isSearching && <p className="py-8 text-center text-xs sm:text-sm text-[#60736e]">Searching people...</p>}
-            {!isSearching && query.trim() && !error && results.length === 0 && <p className="py-8 text-center text-xs sm:text-sm text-[#60736e]">No users found.</p>}
+            {!query.trim() && <p className="py-8 text-center text-xs sm:text-sm text-txt-muted">Type a name or email to search.</p>}
+            {isSearching && <p className="py-8 text-center text-xs sm:text-sm text-txt-muted">Searching people...</p>}
+            {!isSearching && query.trim() && !error && results.length === 0 && <p className="py-8 text-center text-xs sm:text-sm text-txt-muted">No users found.</p>}
             {!isSearching && results.length > 0 && (
               <div className="space-y-2" aria-live="polite">
                 {results.map((user) => (
@@ -109,17 +109,17 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
                     disabled={Boolean(selectedUserId)}
                     onClick={() => handleSelect(user)}
                     className={`flex min-h-[52px] w-full items-center gap-3 rounded-xl border p-2.5 sm:p-3 text-left transition ${
-                      selectedUserId === user.id ? 'border-[#0f766e] bg-[#d9f0eb]' : 'border-[#e4ece9] hover:border-[#99d6cc] hover:bg-[#f4f9f7]'
+                      selectedUserId === user.id ? 'border-brand bg-brand-selected' : 'border-line-glass bg-glass-card hover:border-brand/50 hover:bg-brand-soft/50'
                     }`}
                   >
-                    <span className="grid h-10 w-10 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-full bg-[#172321] text-sm font-semibold text-white" aria-hidden="true">
+                    <span className="grid h-10 w-10 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-full bg-txt-primary text-sm font-semibold text-white" aria-hidden="true">
                       {user.name.charAt(0).toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-[#172321]">{user.name}</span>
-                      <span className="block truncate text-xs text-[#60736e]">{user.email}</span>
+                      <span className="block truncate text-sm font-semibold text-txt-primary">{user.name}</span>
+                      <span className="block truncate text-xs text-txt-muted">{user.email}</span>
                     </span>
-                    {selectedUserId === user.id && <span className="ml-auto shrink-0 text-xs font-semibold text-[#0f766e]">Opening...</span>}
+                    {selectedUserId === user.id && <span className="ml-auto shrink-0 text-xs font-semibold text-brand">Opening...</span>}
                   </button>
                 ))}
               </div>

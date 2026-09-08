@@ -57,7 +57,7 @@ function RegisterPage() {
       <AuthCard eyebrow="Start a new chapter" title="Create your ChatPRO account" description="A simple home for your everyday conversations.">
         <form className="mt-5 sm:mt-7 space-y-4 sm:space-y-5" onSubmit={handleSubmit} noValidate>
           <FormMessage>{error}</FormMessage>
-          <label className="block text-sm font-medium text-[#172321]">
+          <label className="block text-sm font-medium text-txt-primary">
             Name
             <input
               name="name"
@@ -66,10 +66,10 @@ function RegisterPage() {
               onChange={updateField}
               autoComplete="name"
               placeholder="Your name"
-              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
             />
           </label>
-          <label className="block text-sm font-medium text-[#172321]">
+          <label className="block text-sm font-medium text-txt-primary">
             Email
             <input
               name="email"
@@ -78,10 +78,10 @@ function RegisterPage() {
               onChange={updateField}
               autoComplete="email"
               placeholder="you@example.com"
-              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
             />
           </label>
-          <label className="block text-sm font-medium text-[#172321]">
+          <label className="block text-sm font-medium text-txt-primary">
             Password
             <input
               name="password"
@@ -90,20 +90,20 @@ function RegisterPage() {
               onChange={updateField}
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-[#cddbd6] px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-[#0f766e] focus:ring-2 focus:ring-[#99d6cc]"
+              className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
             />
           </label>
           <button
             disabled={isSubmitting}
             type="submit"
-            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#172321] px-4 py-3 font-semibold text-white hover:bg-[#2d413c] active:bg-[#121c1a] disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
           >
             {isSubmitting ? 'Creating account...' : 'Create account'}
           </button>
         </form>
-        <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-[#60736e]">
+        <p className="mt-5 sm:mt-6 text-center text-xs sm:text-sm text-txt-muted">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-[#0f766e] hover:underline">
+          <Link to="/login" className="font-semibold text-brand hover:underline">
             Sign in
           </Link>
         </p>

@@ -13,7 +13,7 @@ function InstallPwaButton({ className = '' }) {
       onClick={installPwa}
       title="Install ChatPRO as an application"
       aria-label="Install ChatPRO application"
-      className={`inline-flex items-center gap-1.5 rounded-lg border border-[#0f766e]/30 bg-[#d9f0eb]/70 px-2.5 py-2 sm:px-3 sm:py-1.5 text-xs font-semibold text-[#0f766e] transition-all hover:border-[#0f766e] hover:bg-[#d9f0eb] hover:shadow-sm ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-xl border border-brand/30 bg-brand-soft px-2.5 py-2 sm:px-3 sm:py-2 text-xs font-semibold text-brand transition-all hover:border-brand hover:bg-brand-selected hover:shadow-xs ${className}`}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"

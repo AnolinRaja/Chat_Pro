@@ -10,10 +10,17 @@ import UserSearch from '../components/UserSearch.jsx'
 import WorkspaceSelector from '../components/WorkspaceSelector.jsx'
 import { useAuth } from '../context/useAuth.js'
 import { useConversationSocket } from '../hooks/useConversationSocket.js'
-import { createConversation, getConversations, getMessages, sendMessage } from '../services/conversationService.js'
+import { createConversation, getConversations, getMessages, markConversationRead, sendMessage } from '../services/conversationService.js'
 import { getMyOrganizations, getOrgConversations } from '../services/organizationService.js'
 import { getSavedChatContext, saveChatContext } from '../utils/chatSessionStorage.js'
-import { clearConversationUnread, recordMessageActivity, sortByNewestActivity } from '../utils/activityUtils.js'
+import {
+  applyReadState,
+  clearConversationUnread,
+  compareCanonicalMessages,
+  hydrateActivityState,
+  recordMessageActivity,
+  sortByNewestActivity,
+} from '../utils/activityUtils.js'
 
 function formatError(error, fallback) {
   if (!error.response) return 'The backend is unavailable. Check that it is running and try again.'
@@ -26,8 +33,9 @@ function formatError(error, fallback) {
 
 function mergeMessage(messages, message) {
   if (!message?.id || messages.some((item) => String(item.id) === String(message.id))) return messages
-  return [...messages, message].sort((first, second) => new Date(first.created_at) - new Date(second.created_at))
+  return [...messages, message].sort(compareCanonicalMessages)
 }
+
 
 function ChatPage() {
   const { user } = useAuth()
@@ -53,7 +61,17 @@ function ChatPage() {
 
   // Active chat state
   const [selectedConversation, setSelectedConversation] = useState(null)
+  const selectedConversationRef = useRef(selectedConversation)
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation
+  }, [selectedConversation])
+
   const [messages, setMessages] = useState([])
+  const messagesRef = useRef(messages)
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
   const [messagesConversationId, setMessagesConversationId] = useState(null)
   const [messageError, setMessageError] = useState('')
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
@@ -65,14 +83,110 @@ function ChatPage() {
     activityStateRef.current = activityState
   }, [activityState])
 
+  const pendingReadCursorRef = useRef({})
+  const lastAckedReadMsgIdRef = useRef({})
+  const isReadRequestInFlightRef = useRef({})
+  const debouncedReadTimersRef = useRef({})
+
+  const processPendingRead = async (convId) => {
+    if (!convId) return
+    if (isReadRequestInFlightRef.current[convId]) return
+
+    // Safety guard: ensure user is still viewing this exact conversation
+    if (selectedConversationRef.current && String(selectedConversationRef.current.id) !== String(convId)) {
+      return
+    }
+
+    const pending = pendingReadCursorRef.current[convId]
+    if (!pending || !pending.msgId) return
+
+    // If backend has already acknowledged this message ID, skip
+    if (lastAckedReadMsgIdRef.current[convId] === pending.msgId) {
+      pendingReadCursorRef.current[convId] = null
+      return
+    }
+
+    const { msgId, msgCreatedAt } = pending
+
+    try {
+      isReadRequestInFlightRef.current[convId] = true
+
+      // Apply read state locally
+      setActivityState((prev) =>
+        applyReadState(prev, convId, {
+          lastReadMessageId: msgId,
+          lastReadMessageCreatedAt: msgCreatedAt,
+        })
+      )
+
+      // Send POST /conversations/{id}/read
+      await markConversationRead(convId, msgId)
+
+      // Successfully acknowledged by backend!
+      lastAckedReadMsgIdRef.current[convId] = msgId
+
+      // Clear pending if it hasn't changed while request was in flight
+      if (pendingReadCursorRef.current[convId]?.msgId === msgId) {
+        pendingReadCursorRef.current[convId] = null
+      }
+    } catch (err) {
+      // Transient failure: Do NOT set lastAckedReadMsgIdRef. Keep pendingReadCursorRef intact for retries.
+      void err
+
+      // Schedule explicit retry after 2 seconds if user is still on this conversation
+      if (debouncedReadTimersRef.current[convId]) {
+        clearTimeout(debouncedReadTimersRef.current[convId])
+      }
+      debouncedReadTimersRef.current[convId] = setTimeout(() => {
+        if (selectedConversationRef.current && String(selectedConversationRef.current.id) === String(convId)) {
+          processPendingRead(convId).catch((e) => { void e })
+        }
+      }, 2000)
+    } finally {
+      isReadRequestInFlightRef.current[convId] = false
+
+      // If a newer pending message arrived while request was in flight, process it now
+      const nextPending = pendingReadCursorRef.current[convId]
+      if (nextPending && nextPending.msgId !== lastAckedReadMsgIdRef.current[convId]) {
+        processPendingRead(convId).catch((err) => { void err })
+      }
+    }
+  }
+
+  const queueActiveMessageRead = (convId, msgId, msgCreatedAt) => {
+    if (!convId || !msgId) return
+
+    // Record newest pending cursor (coalesces rapid messages: M101 replaced by M102)
+    pendingReadCursorRef.current[convId] = { msgId, msgCreatedAt }
+
+    if (debouncedReadTimersRef.current[convId]) {
+      clearTimeout(debouncedReadTimersRef.current[convId])
+    }
+
+    debouncedReadTimersRef.current[convId] = setTimeout(() => {
+      // Safety guard: Ensure user is still viewing this exact conversation
+      if (selectedConversationRef.current && String(selectedConversationRef.current.id) === String(convId)) {
+        processPendingRead(convId)
+      }
+    }, 150)
+  }
+
   const [activeUserId, setActiveUserId] = useState(user?.id)
 
-  // Reset in-memory activity state during render when user changes (User isolation)
+  // Reset in-memory activity state when user changes (User isolation)
   if (activeUserId !== user?.id) {
     setActiveUserId(user?.id)
     setActivityState({})
-    activityStateRef.current = {}
   }
+
+  // Clear pending read refs and timers on user/session change
+  useEffect(() => {
+    pendingReadCursorRef.current = {}
+    lastAckedReadMsgIdRef.current = {}
+    isReadRequestInFlightRef.current = {}
+    Object.values(debouncedReadTimersRef.current).forEach((timer) => clearTimeout(timer))
+    debouncedReadTimersRef.current = {}
+  }, [user?.id])
 
   // Modals
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
@@ -149,13 +263,18 @@ function ChatPage() {
     const loadConversations = async () => {
       try {
         setIsLoadingConversations(true)
+        const restInitiatedAt = new Date().toISOString()
         const result = await getConversations()
         if (active) {
-          const sorted = sortByNewestActivity(result, activityStateRef.current)
-          setConversations(sorted)
+          setActivityState((prev) => {
+            const hydrated = hydrateActivityState(prev, result, restInitiatedAt)
+            const sorted = sortByNewestActivity(result, hydrated)
+            setConversations(sorted)
+            return hydrated
+          })
           // If on Direct Messages workspace, restore saved DM conversation if valid
           if (!savedContextRef.current.organizationId && savedContextRef.current.conversationId) {
-            const matchingConv = sorted.find((c) => String(c.id) === String(savedContextRef.current.conversationId))
+            const matchingConv = result.find((c) => String(c.id) === String(savedContextRef.current.conversationId))
             if (matchingConv) {
               setSelectedConversation(matchingConv)
               savedContextRef.current.conversationId = null
@@ -191,20 +310,25 @@ function ChatPage() {
       setIsLoadingChannels(true)
       setChannelError('')
       try {
+        const restInitiatedAt = new Date().toISOString()
         const result = await getOrgConversations(activeWorkspace.organization_id)
         if (active) {
-          const sorted = sortByNewestActivity(result, activityStateRef.current)
-          setChannels(sorted)
+          setActivityState((prev) => {
+            const hydrated = hydrateActivityState(prev, result, restInitiatedAt)
+            const sorted = sortByNewestActivity(result, hydrated)
+            setChannels(sorted)
+            return hydrated
+          })
           // Restore saved channel if matching this organization
           const targetConvId = savedContextRef.current.conversationId
-          const matchingChannel = targetConvId ? sorted.find((c) => String(c.id) === String(targetConvId)) : null
+          const matchingChannel = targetConvId ? result.find((c) => String(c.id) === String(targetConvId)) : null
 
           if (matchingChannel) {
             setSelectedConversation(matchingChannel)
             savedContextRef.current.conversationId = null
-          } else if (sorted.length > 0) {
+          } else if (result.length > 0) {
             // Auto-select general or first channel if available
-            const general = sorted.find((c) => c.name === 'general') || sorted[0]
+            const general = result.find((c) => c.name === 'general') || result[0]
             setSelectedConversation(general)
             if (user?.id) {
               saveChatContext(user.id, {
@@ -250,55 +374,24 @@ function ChatPage() {
     getMessages(selectedConversation.id)
       .then(({ messages: result }) => {
         if (active) {
-          setMessages(result)
+          const sortedMessages = [...(result || [])].sort(compareCanonicalMessages)
+          setMessages(sortedMessages)
           setMessagesConversationId(selectedConversation.id)
 
-          // Derive latest preview from loaded messages, preserving any newer WS activity
-          setActivityState((prev) => {
-            const existing = prev[selectedConversation.id]
-            const existingTime = existing?.latestMessageAt ? new Date(existing.latestMessageAt).getTime() : 0
+          if (sortedMessages.length > 0) {
+            const newestMsg = sortedMessages[sortedMessages.length - 1]
 
-            if (result && result.length > 0) {
-              const lastMsg = result[result.length - 1]
-              const restTime = new Date(lastMsg.created_at).getTime()
-              if (existingTime > restTime) {
-                return {
-                  ...prev,
-                  [selectedConversation.id]: {
-                    ...existing,
-                    unreadCount: 0,
-                  },
-                }
-              }
-              return {
-                ...prev,
-                [selectedConversation.id]: {
-                  latestPreview: lastMsg.content,
-                  latestMessageAt: lastMsg.created_at,
-                  unreadCount: 0,
-                },
-              }
-            }
-
-            if (existingTime > 0) {
-              return {
-                ...prev,
-                [selectedConversation.id]: {
-                  ...existing,
-                  unreadCount: 0,
-                },
-              }
-            }
-
-            return {
-              ...prev,
-              [selectedConversation.id]: {
-                latestPreview: 'No messages yet',
-                latestMessageAt: selectedConversation.updated_at || selectedConversation.created_at,
-                unreadCount: 0,
-              },
-            }
-          })
+            // Mark read locally and send POST /read via queueActiveMessageRead
+            queueActiveMessageRead(selectedConversation.id, newestMsg.id, newestMsg.created_at)
+          } else {
+            // Empty conversation: unreadCount = 0, no POST /read called
+            setActivityState((prev) =>
+              applyReadState(prev, selectedConversation.id, {
+                lastReadMessageId: null,
+                lastReadMessageCreatedAt: null,
+              })
+            )
+          }
         }
       })
       .catch((error) => {
@@ -321,10 +414,37 @@ function ChatPage() {
     const eventConvId = event.conversation_id || event.message?.conversation_id || event.data?.conversation_id
     if (!eventConvId) return
 
-    if (event.type === 'message.created' || event.type === 'message' || event.type === 'message_ack') {
+    if (event.type === 'conversation.read') {
+      const { user_id, last_read_message_id, last_read_message_created_at } = event
+      if (last_read_message_id) {
+        let resolvedCreatedAt = last_read_message_created_at || null
+        if (!resolvedCreatedAt) {
+          if (selectedConversationRef.current && String(selectedConversationRef.current.id) === String(eventConvId)) {
+            const matchingMsg = messagesRef.current.find((m) => String(m.id) === String(last_read_message_id))
+            if (matchingMsg) resolvedCreatedAt = matchingMsg.created_at
+          }
+          if (!resolvedCreatedAt) {
+            const existingAct = activityStateRef.current[eventConvId]
+            if (existingAct && String(existingAct.latestMessageId) === String(last_read_message_id)) {
+              resolvedCreatedAt = existingAct.latestMessageAt
+            }
+          }
+        }
+        // NOTE: If resolvedCreatedAt is null, pass null. Do NOT fallback to last_read_at or wall-clock time!
+
+        setActivityState((prev) =>
+          applyReadState(prev, eventConvId, {
+            lastReadMessageId: last_read_message_id,
+            lastReadMessageCreatedAt: resolvedCreatedAt,
+            currentUserId: user?.id,
+            eventUserId: user_id,
+          })
+        )
+      }
+    } else if (event.type === 'message.created' || event.type === 'message' || event.type === 'message_ack') {
       const msg = event.message || event.data
       if (msg) {
-        const isCurrentConv = selectedConversation && String(eventConvId) === String(selectedConversation.id)
+        const isCurrentConv = selectedConversationRef.current && String(eventConvId) === String(selectedConversationRef.current.id)
         if (isCurrentConv) {
           setMessages((current) => mergeMessage(current, msg))
         }
@@ -336,9 +456,17 @@ function ChatPage() {
           recordMessageActivity(prev, eventConvId, {
             content: msg.content,
             timestamp: msgTimestamp,
+            messageId: msg.id,
+            senderId: msg.sender_id,
+            currentUserId: user?.id,
             isCurrentlySelected: Boolean(isCurrentConv),
           })
         )
+
+        // ISSUE 2 FIX: If realtime message arrived for currently active chat, queue debounced POST /read
+        if (isCurrentConv) {
+          queueActiveMessageRead(eventConvId, msg.id, msgTimestamp)
+        }
 
         // Reorder conversations or channels strictly based on newest activity timestamp
         setConversations((prev) => {
@@ -371,6 +499,7 @@ function ChatPage() {
     }
   }
 
+
   const { status: socketStatus } = useConversationSocket(selectedConversation?.id, {
     onEvent: handleSocketEvent,
     onError: setMessageError,
@@ -390,6 +519,9 @@ function ChatPage() {
         recordMessageActivity(prev, selectedConversation.id, {
           content: savedMessage.content || content,
           timestamp: savedTimestamp,
+          messageId: savedMessage.id,
+          senderId: user?.id,
+          currentUserId: user?.id,
           isCurrentlySelected: true,
         })
       )

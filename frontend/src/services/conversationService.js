@@ -26,3 +26,10 @@ export async function sendMessage(conversationId, content) {
   const response = await api.post(`/conversations/${conversationId}/messages`, { content })
   return response.data
 }
+
+export async function markConversationRead(conversationId, lastReadMessageId) {
+  const response = await api.post(`/conversations/${conversationId}/read`, {
+    last_read_message_id: lastReadMessageId,
+  })
+  return response.data
+}

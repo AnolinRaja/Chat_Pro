@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import api, { getAccessToken, setAccessToken } from '../services/api.js'
+import { getAccessToken, singleFlightRefresh } from '../services/api.js'
 import { useAuth } from './useAuth.js'
 
 const RealtimeContext = createContext(null)
@@ -21,7 +21,6 @@ export function RealtimeProvider({ children }) {
   const sessionEpochRef = useRef(0)
   const reconnectTimeoutRef = useRef(null)
   const reconnectAttemptsRef = useRef(0)
-  const isRefreshingRef = useRef(false)
 
   const clearReconnectTimeout = () => {
     if (reconnectTimeoutRef.current) {
@@ -76,18 +75,12 @@ export function RealtimeProvider({ children }) {
 
     async function ensureFreshToken() {
       let token = getAccessToken()
-      if (!token && !isRefreshingRef.current) {
-        isRefreshingRef.current = true
+      if (!token) {
         try {
-          const response = await api.post('/auth/refresh')
-          if (response.data?.access_token) {
-            setAccessToken(response.data.access_token)
-            token = response.data.access_token
-          }
+          const data = await singleFlightRefresh()
+          token = data?.access_token || null
         } catch {
-          // Refresh failed; auth system handles 401 session expiration
-        } finally {
-          isRefreshingRef.current = false
+          // Auth refresh failed — AuthContext owns session teardown
         }
       }
       return token
@@ -120,7 +113,7 @@ export function RealtimeProvider({ children }) {
 
       ws.onopen = () => {
         if (sessionEpochRef.current !== currentEpoch || socketRef.current !== ws) {
-          try { ws.close(1000, 'Stale socket generation') } catch {}
+          try { ws.close(1000, 'Stale socket generation') } catch (_e) { /* ignore */ }
           return
         }
         reconnectAttemptsRef.current = 0
@@ -132,7 +125,7 @@ export function RealtimeProvider({ children }) {
         try {
           const parsed = JSON.parse(event.data)
           subscribersRef.current.forEach((listener) => {
-            try { listener(parsed) } catch {}
+            try { listener(parsed) } catch (_e) { /* ignore */ }
           })
         } catch {
           // Non-JSON socket payload ignored
@@ -196,7 +189,7 @@ export function RealtimeProvider({ children }) {
       if (socketRef.current) {
         const ws = socketRef.current
         socketRef.current = null
-        try { ws.close(1000, 'Provider effect unmounting') } catch {}
+        try { ws.close(1000, 'Provider effect unmounting') } catch (_e) { /* ignore */ }
       }
     }
   }, [user?.id, disconnectSocket])

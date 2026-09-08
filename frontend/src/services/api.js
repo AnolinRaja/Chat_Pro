@@ -48,20 +48,46 @@ function isAuthBypassUrl(url) {
   return AUTH_BYPASS_URLS.has(cleanUrl)
 }
 
-let isRefreshing = false
-let failedQueue = []
+// ---------------------------------------------------------------------------
+// Single-flight refresh: guarantees at most ONE in-flight POST /auth/refresh
+// regardless of how many consumers call this concurrently.
+// ---------------------------------------------------------------------------
+let _refreshPromise = null
 
-const processQueue = (error, token = null) => {
-  failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token)
-    }
-  })
-  failedQueue = []
+/**
+ * Returns a Promise that resolves to the refresh response data
+ * ({ access_token, user? }).  If a refresh is already in flight, all callers
+ * share the same Promise.  On success the in-memory access token is set
+ * automatically.  On failure the access token is cleared and the error is
+ * re-thrown so each caller can handle it independently.
+ */
+export function singleFlightRefresh() {
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = api
+    .post('/auth/refresh')
+    .then((response) => {
+      const data = response.data
+      if (data?.access_token) {
+        setAccessToken(data.access_token)
+      }
+      return data
+    })
+    .catch((error) => {
+      clearAccessToken()
+      throw error
+    })
+    .finally(() => {
+      _refreshPromise = null
+    })
+
+  return _refreshPromise
 }
 
+// ---------------------------------------------------------------------------
+// 401 interceptor — uses singleFlightRefresh() so that retried requests
+// share the same single-flight guarantee as startup refresh.
+// ---------------------------------------------------------------------------
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -74,37 +100,19 @@ api.interceptors.response.use(
       !originalRequest._retry &&
       !isAuthBypassUrl(originalRequest.url)
     ) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
-            return api(originalRequest)
-          })
-          .catch((err) => Promise.reject(err))
-      }
-
       originalRequest._retry = true
-      isRefreshing = true
 
       try {
-        const response = await api.post('/auth/refresh')
-        const { access_token } = response.data
-
-        setAccessToken(access_token)
-
-        processQueue(null, access_token)
-        isRefreshing = false
-
-        originalRequest.headers.Authorization = `Bearer ${access_token}`
+        const data = await singleFlightRefresh()
+        if (!originalRequest.headers) {
+          originalRequest.headers = {}
+        }
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`
         return api(originalRequest)
       } catch (refreshError) {
-        processQueue(refreshError, null)
-        isRefreshing = false
-
-        clearAccessToken()
-        window.dispatchEvent(new Event('auth:logout'))
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('auth:logout'))
+        }
         return Promise.reject(refreshError)
       }
     }

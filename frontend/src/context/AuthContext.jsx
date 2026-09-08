@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import api, { clearAccessToken, setAccessToken } from '../services/api.js'
+import api, { clearAccessToken, setAccessToken, singleFlightRefresh } from '../services/api.js'
 import { clearSavedChatContext } from '../utils/chatSessionStorage.js'
 import authContextValue from './authContextValue.js'
 
@@ -109,11 +109,13 @@ export function AuthProvider({ children }) {
 
     const restoreSession = async () => {
       try {
-        // Startup session restoration authoritative via HttpOnly refresh/session cookie
-        const refreshRes = await api.post('/auth/refresh')
+        // Startup session restoration authoritative via HttpOnly refresh/session cookie.
+        // singleFlightRefresh() guarantees at most one in-flight request even if
+        // other consumers (e.g. RealtimeProvider) call it concurrently.
+        const refreshData = await singleFlightRefresh()
         if (!active) return
 
-        const { access_token, user: userProfile } = refreshRes.data
+        const { access_token, user: userProfile } = refreshData
         if (access_token) {
           setAccessToken(access_token)
           if (userProfile) {

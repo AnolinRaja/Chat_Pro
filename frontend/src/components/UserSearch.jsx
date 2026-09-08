@@ -74,9 +74,9 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-6 backdrop-blur-md transition-opacity" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-modal shadow-glass backdrop-blur-xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-glass p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6 backdrop-blur-md transition-opacity" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl border border-white/60 bg-white/70 shadow-[0_24px_70px_-15px_rgba(0,30,25,0.35)] backdrop-blur-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="new-chat-title">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/30 p-4 sm:p-6 bg-white/30 backdrop-blur-sm">
           <div className="min-w-0">
             <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-brand">New chat</p>
             <h2 id="new-chat-title" className="mt-1 text-xl sm:text-2xl font-semibold text-txt-primary">Find someone to message</h2>
@@ -92,7 +92,7 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
               value={query}
               onChange={handleQueryChange}
               placeholder="Search people..."
-              className="mt-2 w-full rounded-xl border border-line-glass bg-glass-card px-3.5 py-2.5 sm:px-4 sm:py-3 text-base sm:text-sm text-txt-primary placeholder:text-txt-muted outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft"
+              className="mt-2 w-full rounded-xl border border-white/50 bg-white/50 px-3.5 py-2.5 sm:px-4 sm:py-3 text-base sm:text-sm text-txt-primary placeholder:text-txt-muted outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 shadow-xs"
             />
           </label>
           <div className="mt-4 min-h-32">
@@ -109,7 +109,7 @@ function UserSearch({ currentUserId, onSelect, onClose }) {
                     disabled={Boolean(selectedUserId)}
                     onClick={() => handleSelect(user)}
                     className={`flex min-h-[52px] w-full items-center gap-3 rounded-xl border p-2.5 sm:p-3 text-left transition ${
-                      selectedUserId === user.id ? 'border-brand bg-brand-selected' : 'border-line-glass bg-glass-card hover:border-brand/50 hover:bg-brand-soft/50'
+                      selectedUserId === user.id ? 'border-brand bg-brand-selected shadow-xs' : 'border-white/40 bg-white/50 hover:border-brand/40 hover:bg-white/80 shadow-xs'
                     }`}
                   >
                     <span className="grid h-10 w-10 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-full bg-txt-primary text-sm font-semibold text-white" aria-hidden="true">

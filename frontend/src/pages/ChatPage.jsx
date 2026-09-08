@@ -8,6 +8,7 @@ import MessageList from '../components/MessageList.jsx'
 import OrgRequestsModal from '../components/OrgRequestsModal.jsx'
 import UserSearch from '../components/UserSearch.jsx'
 import WorkspaceSelector from '../components/WorkspaceSelector.jsx'
+import { ChatProSymbol } from '../components/ChatProLogo.jsx'
 import { useAuth } from '../context/useAuth.js'
 import { useConversationSocket } from '../hooks/useConversationSocket.js'
 import { createConversation, getConversations, getMessages, markConversationRead, sendMessage } from '../services/conversationService.js'
@@ -40,6 +41,9 @@ function mergeMessage(messages, message) {
 function ChatPage() {
   const { user } = useAuth()
   const savedContextRef = useRef(getSavedChatContext(user?.id))
+
+  // Search filter
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Workspace & Organizations
   const [memberships, setMemberships] = useState([])
@@ -677,8 +681,17 @@ function ChatPage() {
     ? (selectedConversation.description || `${activeWorkspace?.organization_name || 'Organization'} channel`)
     : (socketStatus === 'connected' ? 'Real-time connection active' : socketStatus)
 
+  const filteredConversations = conversations.filter((c) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    const name = c.other_user?.name?.toLowerCase() || ''
+    const email = c.other_user?.email?.toLowerCase() || ''
+    const preview = (activityState[c.id]?.latestPreview || '').toLowerCase()
+    return name.includes(query) || email.includes(query) || preview.includes(query)
+  })
+
   return (
-    <section className="mx-auto flex h-[calc(100dvh-57px)] sm:h-[calc(100vh-73px)] max-w-7xl overflow-hidden bg-glass-card shadow-glass lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-2xl lg:border lg:border-line-glass">
+    <section className="mx-auto flex h-[calc(100dvh-57px)] sm:h-[calc(100vh-73px)] w-full max-w-7xl overflow-hidden bg-white/10 backdrop-blur-xl shadow-[0_24px_70px_-15px_rgba(0,30,25,0.35)] lg:my-6 lg:h-[calc(100vh-121px)] lg:rounded-3xl lg:border lg:border-white/30 transition-all">
       {/* Workspace Rail */}
       <WorkspaceSelector
         memberships={memberships}
@@ -687,34 +700,82 @@ function ChatPage() {
         onSelectWorkspace={handleSelectWorkspace}
         onOpenJoinOrg={() => setIsJoinOrgOpen(true)}
         onOpenRequestsModal={handleOpenRequestsModal}
+        user={user}
         className={selectedConversation ? 'hidden sm:flex' : 'flex'}
       />
 
       {/* Primary Sidebar: Either DMs or Organization Channels */}
-      <aside className={`w-full sm:max-w-sm shrink-0 flex-col border-r border-line-glass bg-glass-sidebar ${selectedConversation ? 'hidden sm:flex' : 'flex flex-1 sm:flex-initial'}`}>
+      <aside className={`w-full sm:max-w-sm shrink-0 flex-col border-r border-white/30 bg-white/30 backdrop-blur-xl ${selectedConversation ? 'hidden sm:flex' : 'flex flex-1 sm:flex-initial'}`}>
         {activeWorkspace === null ? (
           /* Direct Messages Sidebar */
           <>
-            <div className="border-b border-line-glass px-3.5 sm:px-5 py-3.5 sm:py-5 bg-glass-header backdrop-blur-md">
-              <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-brand">
-                Direct Messages
-              </p>
-              <h1 className="mt-1 truncate text-base sm:text-lg font-semibold text-txt-primary">{user?.name}</h1>
-              <p className="truncate text-xs sm:text-sm text-txt-muted">{user?.email}</p>
+            <div className="border-b border-white/30 px-3.5 sm:px-5 py-3 sm:py-3.5 bg-white/20 backdrop-blur-sm">
+              {/* Sidebar Brand Identity */}
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-white/50 p-1 backdrop-blur-md border border-white/60 shadow-xs">
+                  <ChatProSymbol size={22} glow />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-sm sm:text-base font-bold text-txt-primary truncate leading-tight font-display">
+                    {user?.name ? `${user.name}'s ` : ''}<span className="text-teal-700">chat</span><span className="text-brand font-black">PRO</span>
+                  </h1>
+                </div>
+              </div>
+
+              {/* Search Pill + Compose Button Row */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="absolute left-3 top-2.5 h-4 w-4 text-txt-muted"
+                    aria-hidden="true"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search conversations..."
+                    className="w-full rounded-full border border-white/40 bg-white/40 pl-9 pr-8 py-2 text-xs sm:text-sm text-txt-primary placeholder:text-txt-muted outline-none focus:bg-white/70 focus:border-brand/50 shadow-xs backdrop-blur-xs transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-2.5 text-xs text-txt-muted hover:text-txt-primary"
+                      aria-label="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsNewChatOpen(true)}
+                  title="New conversation"
+                  aria-label="New conversation"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/40 bg-white/40 text-txt-secondary hover:bg-white/75 hover:text-brand transition-all shadow-xs backdrop-blur-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center justify-between px-3.5 sm:px-5 py-3 sm:py-4">
-              <h2 className="font-semibold text-sm sm:text-base text-txt-primary">Conversations</h2>
-              <button
-                type="button"
-                onClick={() => setIsNewChatOpen(true)}
-                className="rounded-xl bg-brand px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-semibold text-white transition hover:bg-brand-hover shadow-xs"
-              >
-                + New Chat
-              </button>
-            </div>
+
             <div className="min-h-0 flex-1 overflow-y-auto">
               <ConversationList
-                conversations={conversations}
+                conversations={filteredConversations}
                 selectedId={selectedConversation?.id}
                 onSelect={handleSelectConversation}
                 isLoading={isLoadingConversations}
@@ -748,35 +809,75 @@ function ChatPage() {
       </aside>
 
       {/* Chat Window */}
-      <main className={`min-w-0 flex-1 flex-col bg-glass-chat ${selectedConversation ? 'flex' : 'hidden sm:flex'}`}>
+      <main className={`min-w-0 flex-1 flex-col bg-white/5 backdrop-blur-xs ${selectedConversation ? 'flex' : 'hidden sm:flex'}`}>
         {selectedConversation ? (
           <>
-            <header className="flex items-center justify-between border-b border-line-glass bg-glass-header backdrop-blur-md px-3.5 py-3 sm:px-8 sm:py-4">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <header className="flex items-center justify-between border-b border-white/30 bg-white/35 backdrop-blur-xl px-3.5 py-2.5 sm:px-6 sm:py-3.5">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                 {/* Back button on mobile */}
                 <button
                   type="button"
                   onClick={() => handleSelectConversation(null)}
-                  className="sm:hidden -ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-txt-muted hover:bg-brand-soft hover:text-brand active:bg-brand-selected"
+                  className="sm:hidden -ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-txt-muted hover:bg-brand-soft hover:text-brand active:bg-brand-selected"
                   aria-label="Back to conversations"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5">
                     <polyline points="15 18 9 12 15 6" />
                   </svg>
                 </button>
+                <div className="relative shrink-0">
+                  <span className="grid h-10 w-10 place-items-center rounded-2xl bg-teal-600/90 font-bold text-white shadow-xs">
+                    {isOrgChannel ? '#' : (participantLabel.charAt(0).toUpperCase())}
+                  </span>
+                </div>
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold text-sm sm:text-base text-txt-primary truncate">
+                  <h2 className="font-bold text-sm sm:text-base text-txt-primary truncate leading-tight">
                     {participantLabel}
                   </h2>
-                  <p className="text-[11px] sm:text-xs text-txt-muted truncate">
+                  <p className="text-[11px] sm:text-xs text-txt-muted truncate leading-tight mt-0.5">
                     {descriptionLabel}
                   </p>
                 </div>
               </div>
-              <div className="shrink-0 flex items-center gap-2 pl-2">
-                <span className="hidden sm:inline-block rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand">
-                  {isOrgChannel ? 'Channel' : 'Direct Message'}
-                </span>
+              <div className="shrink-0 flex items-center gap-1.5 sm:gap-2 pl-2 text-txt-secondary">
+                {/* Video action */}
+                <button
+                  type="button"
+                  title="Video call"
+                  aria-label="Video call"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl hover:bg-white/60 hover:text-brand transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 sm:h-4.5 sm:w-4.5">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </button>
+
+                {/* Audio call action */}
+                <button
+                  type="button"
+                  title="Voice call"
+                  aria-label="Voice call"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl hover:bg-white/60 hover:text-brand transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 sm:h-4.5 sm:w-4.5">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </button>
+
+                {/* More options */}
+                <button
+                  type="button"
+                  title="More options"
+                  aria-label="More options"
+                  className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl hover:bg-white/60 hover:text-brand transition-all"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 sm:h-4.5 sm:w-4.5">
+                    <circle cx="12" cy="12" r="1" />
+                    <circle cx="12" cy="5" r="1" />
+                    <circle cx="12" cy="19" r="1" />
+                  </svg>
+                </button>
               </div>
             </header>
 
@@ -794,13 +895,13 @@ function ChatPage() {
           </>
         ) : (
           <div className="m-auto px-6 sm:px-8 text-center">
-            <div className="mx-auto grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-2xl bg-brand-soft text-xl sm:text-2xl text-brand shadow-xs" aria-hidden="true">
-              ✦
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-white/40 p-2.5 backdrop-blur-md border border-white/50 shadow-sm" aria-hidden="true">
+              <ChatProSymbol size={40} glow />
             </div>
-            <h2 className="mt-4 sm:mt-5 text-xl sm:text-2xl font-semibold text-txt-primary">
+            <h2 className="mt-4 sm:mt-5 text-xl sm:text-2xl font-bold text-txt-primary font-display">
               {activeWorkspace ? `Welcome to ${activeWorkspace.organization_name}` : 'Choose a conversation'}
             </h2>
-            <p className="mt-2 max-w-sm text-xs sm:text-sm leading-6 text-txt-muted">
+            <p className="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-txt-muted">
               {activeWorkspace
                 ? 'Select a channel from the sidebar or create a new channel to start messaging.'
                 : 'Select a conversation from the sidebar or start one with a teammate.'}

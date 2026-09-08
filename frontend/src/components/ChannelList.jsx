@@ -12,9 +12,9 @@ function ChannelList({
   activityState = {},
 }) {
   return (
-    <div className="flex flex-col h-full bg-glass-sidebar">
+    <div className="flex flex-col h-full bg-transparent">
       {/* Organization Header */}
-      <div className="border-b border-line-glass px-3.5 sm:px-5 py-3 sm:py-4 bg-glass-header backdrop-blur-md">
+      <div className="border-b border-white/30 px-3.5 sm:px-5 py-3 sm:py-4 bg-white/20 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-2 min-w-0">
           <h2 className="font-semibold text-sm sm:text-base text-txt-primary truncate">
             {organization?.organization_name || 'Organization'}
@@ -36,7 +36,7 @@ function ChannelList({
         <button
           type="button"
           onClick={onOpenCreateChannel}
-          className="flex items-center gap-1 rounded-xl bg-brand px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-hover shadow-xs"
+          className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-[#0f766e] to-[#0c635c] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 shadow-xs"
         >
           <span aria-hidden="true">+</span> Add Channel
         </button>
@@ -55,7 +55,7 @@ function ChannelList({
               <button
                 type="button"
                 onClick={onRetry}
-                className="rounded-xl border border-line-glass bg-glass-card px-3 py-1.5 text-xs font-semibold text-txt-primary hover:bg-brand-soft"
+                className="rounded-xl border border-white/40 bg-white/45 px-3 py-1.5 text-xs font-semibold text-txt-primary hover:bg-white/75"
               >
                 Retry
               </button>
@@ -69,7 +69,7 @@ function ChannelList({
             <button
               type="button"
               onClick={onOpenCreateChannel}
-              className="rounded-xl border border-brand bg-glass-card px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-selected"
+              className="rounded-xl border border-brand bg-white/45 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-selected"
             >
               Create the first channel
             </button>
@@ -93,15 +93,22 @@ function ChannelList({
                 key={channel.id}
                 type="button"
                 onClick={() => onSelect(channel)}
-                className={`group flex min-h-[52px] w-full items-center gap-2.5 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 text-left transition ${
+                className={`group relative flex min-h-[56px] w-full items-center gap-2.5 rounded-2xl px-3.5 py-2.5 text-left transition-all duration-150 ${
                   isSelected
-                    ? 'bg-brand-selected border-l-4 border-brand pl-2 sm:pl-2.5 text-brand font-semibold shadow-xs'
-                    : 'text-txt-secondary hover:bg-brand-soft/60 active:bg-brand-soft'
+                    ? 'bg-white/80 shadow-[0_4px_20px_-4px_rgba(0,30,25,0.20)] border border-brand/40 text-txt-primary backdrop-blur-md'
+                    : 'border border-white/20 bg-white/30 hover:border-white/60 hover:bg-white/60 hover:shadow-xs active:scale-[0.99] backdrop-blur-xs'
                 }`}
               >
+                {isSelected && (
+                  <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r-full bg-brand" aria-hidden="true" />
+                )}
                 <span
-                  className={`text-base font-bold shrink-0 ${
-                    isSelected ? 'text-brand' : hasUnread ? 'text-txt-primary' : 'text-txt-muted'
+                  className={`grid h-8 w-8 place-items-center rounded-xl text-base font-bold shrink-0 transition-colors ${
+                    isSelected
+                      ? 'bg-brand text-white shadow-xs'
+                      : hasUnread
+                        ? 'bg-txt-primary text-white'
+                        : 'bg-brand-soft text-brand'
                   }`}
                   aria-hidden="true"
                 >
@@ -110,22 +117,22 @@ function ChannelList({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1.5">
                     <span
-                      className={`truncate text-sm ${
+                      className={`truncate text-sm tracking-tight ${
                         hasUnread
                           ? 'font-bold text-txt-primary'
                           : isSelected
-                            ? 'font-semibold text-brand'
-                            : 'font-medium text-txt-primary'
+                            ? 'font-bold text-txt-primary'
+                            : 'font-semibold text-txt-primary'
                       }`}
                     >
                       {channel.name}
                     </span>
-                    <span className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {timeDisplay && (
                         <span
                           title={fullTime}
-                          className={`text-[11px] sm:text-xs ${
-                            hasUnread ? 'font-semibold text-brand' : 'text-txt-timestamp font-normal'
+                          className={`text-[11px] font-medium font-mono ${
+                            hasUnread ? 'font-bold text-brand' : 'text-txt-timestamp'
                           }`}
                         >
                           {timeDisplay}
@@ -133,21 +140,21 @@ function ChannelList({
                       )}
                       {hasUnread && (
                         <span
-                          className="inline-flex h-4 min-w-[16px] sm:h-5 sm:min-w-[20px] items-center justify-center rounded-full bg-brand px-1 sm:px-1.5 text-[10px] sm:text-[11px] font-bold text-white shadow-xs"
+                          className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white shadow-xs"
                           aria-label={`${unreadCount} unread message${unreadCount > 1 ? 's' : ''}`}
                         >
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
-                    </span>
+                    </div>
                   </div>
-                  <span
-                    className={`block truncate text-xs mt-0.5 ${
-                      hasUnread ? 'font-medium text-txt-primary' : 'text-txt-muted font-normal'
+                  <p
+                    className={`truncate text-xs mt-0.5 leading-relaxed ${
+                      hasUnread ? 'font-semibold text-txt-primary' : 'text-txt-muted'
                     }`}
                   >
                     {previewText}
-                  </span>
+                  </p>
                 </div>
               </button>
             )

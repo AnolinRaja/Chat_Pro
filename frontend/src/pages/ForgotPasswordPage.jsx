@@ -86,7 +86,7 @@ function ForgotPasswordPage() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
-                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
+                className="mt-1.5 sm:mt-2 w-full rounded-xl border border-white/50 bg-white/50 backdrop-blur-md text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all shadow-xs"
               />
             </label>
             <label className="block text-sm font-medium text-txt-primary">
@@ -97,13 +97,13 @@ function ForgotPasswordPage() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 autoComplete="new-password"
                 placeholder="Repeat password"
-                className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
+                className="mt-1.5 sm:mt-2 w-full rounded-xl border border-white/50 bg-white/50 backdrop-blur-md text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all shadow-xs"
               />
             </label>
             <button
               disabled={isSubmitting}
               type="submit"
-              className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
+              className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#0f766e] to-[#0c635c] px-4 py-3 font-semibold text-white hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 transition-all shadow-md shadow-brand/20"
             >
               {isSubmitting ? 'Updating...' : 'Set new password'}
             </button>
@@ -129,13 +129,13 @@ function ForgotPasswordPage() {
                   onChange={(event) => { setEmail(event.target.value); setError('') }}
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="mt-1.5 sm:mt-2 w-full rounded-lg border border-line-subtle bg-surface-elevated text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
+                  className="mt-1.5 sm:mt-2 w-full rounded-xl border border-white/50 bg-white/50 backdrop-blur-md text-txt-primary px-3.5 py-2.5 sm:px-3 sm:py-3 text-base sm:text-sm outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all shadow-xs"
                 />
               </label>
               <button
                 disabled={isSubmitting}
                 type="submit"
-                className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
+                className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#0f766e] to-[#0c635c] px-4 py-3 font-semibold text-white hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 transition-all shadow-md shadow-brand/20"
               >
                 {isSubmitting ? 'Sending...' : 'Continue'}
               </button>

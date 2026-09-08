@@ -5,6 +5,7 @@
   --font-sans: 'DM Sans', sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
 
+  /* GlassFlow surfaces */
   --color-glass-app: var(--bg-app);
   --color-glass-rail: var(--bg-rail);
   --color-glass-sidebar: var(--bg-sidebar);
@@ -13,21 +14,36 @@
   --color-glass-card: var(--bg-card);
   --color-glass-modal: var(--bg-modal);
   --color-glass-composer: var(--bg-composer);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-subtle: var(--glass-subtle);
 
+  /* Surface tokens */
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+
+  /* Brand / Teal Accent */
   --color-brand: var(--accent-primary);
   --color-brand-hover: var(--accent-hover);
   --color-brand-active: var(--accent-active);
   --color-brand-soft: var(--accent-soft);
   --color-brand-selected: var(--accent-selected);
 
+  /* Text & Content */
   --color-txt-primary: var(--text-primary);
   --color-txt-secondary: var(--text-secondary);
   --color-txt-muted: var(--text-muted);
   --color-txt-timestamp: var(--text-timestamp);
 
+  /* Borders */
   --color-line-glass: var(--glass-border);
   --color-line-subtle: var(--glass-border-subtle);
 
+  /* Status */
+  --color-unread: var(--status-unread);
+  --color-status-error: var(--status-error);
+  --color-status-success: var(--status-success);
+
+  /* Message Bubbles */
   --color-bubble-mine-bg: var(--bubble-mine-bg);
   --color-bubble-mine-txt: var(--bubble-mine-txt);
   --color-bubble-mine-meta: var(--bubble-mine-meta);
@@ -43,46 +59,57 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  /* GlassFlow Light Colors */
-  --bg-app: #f2f6f4;
-  --bg-rail: #e6eee9;
-  --bg-sidebar: rgba(251, 253, 252, 0.85);
-  --bg-chat: rgba(238, 244, 241, 0.65);
-  --bg-header: rgba(255, 255, 255, 0.85);
-  --bg-card: #ffffff;
-  --bg-modal: rgba(255, 255, 255, 0.9);
-  --bg-composer: rgba(255, 255, 255, 0.88);
+  /* GlassFlow Layer Surfaces - True Translucent Glass */
+  --bg-app: transparent;
+  --bg-rail: rgba(255, 255, 255, 0.20);
+  --bg-sidebar: rgba(255, 255, 255, 0.32);
+  --bg-chat: rgba(255, 255, 255, 0.08);
+  --bg-header: rgba(255, 255, 255, 0.35);
+  --bg-card: rgba(255, 255, 255, 0.50);
+  --bg-modal: rgba(255, 255, 255, 0.70);
+  --bg-composer: rgba(255, 255, 255, 0.55);
+  --glass-strong: rgba(255, 255, 255, 0.75);
+  --glass-subtle: rgba(255, 255, 255, 0.25);
+
+  --surface: rgba(255, 255, 255, 0.35);
+  --surface-elevated: rgba(255, 255, 255, 0.60);
 
   /* Borders & Dividers */
-  --glass-border: rgba(215, 227, 222, 0.75);
-  --glass-border-subtle: rgba(215, 227, 222, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-border-subtle: rgba(255, 255, 255, 0.25);
 
   /* Shadows */
-  --shadow-glass: 0 20px 50px rgba(20, 50, 44, 0.08);
-  --shadow-composer: 0 10px 30px rgba(15, 118, 110, 0.08);
-  --shadow-card: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --shadow-glass: 0 24px 70px -15px rgba(0, 30, 25, 0.35);
+  --shadow-composer: 0 16px 40px -8px rgba(0, 30, 25, 0.30);
+  --shadow-card: 0 12px 36px -6px rgba(0, 30, 25, 0.25);
+  --shadow-bubble: 0 4px 16px -2px rgba(0, 30, 25, 0.15);
 
   /* Text & Content */
-  --text-primary: #14211e;
-  --text-secondary: #425752;
-  --text-muted: #5e736e;
-  --text-timestamp: #78908a;
+  --text-primary: #091714;
+  --text-secondary: #1e3630;
+  --text-muted: #3d5650;
+  --text-timestamp: #506d67;
 
-  /* Brand / Teal Accent */
+  /* Brand / Teal Identity */
   --accent-primary: #0f766e;
-  --accent-hover: #0d655e;
-  --accent-active: #094b46;
-  --accent-soft: rgba(15, 118, 110, 0.1);
-  --accent-selected: #d7efe9;
+  --accent-hover: #0c635c;
+  --accent-active: #084944;
+  --accent-soft: rgba(15, 118, 110, 0.15);
+  --accent-selected: rgba(15, 118, 110, 0.20);
+
+  /* Status */
+  --status-unread: #0f766e;
+  --status-error: #e11d48;
+  --status-success: #059669;
 
   /* Message Bubbles */
-  --bubble-mine-bg: #0f766e;
+  --bubble-mine-bg: linear-gradient(135deg, rgba(15, 118, 110, 0.92) 0%, rgba(12, 99, 92, 0.95) 100%);
   --bubble-mine-txt: #ffffff;
-  --bubble-mine-meta: #c4e8e1;
-  --bubble-other-bg: rgba(255, 255, 255, 0.92);
-  --bubble-other-txt: #14211e;
-  --bubble-other-border: rgba(220, 231, 227, 0.85);
-  --bubble-other-meta: #78908a;
+  --bubble-mine-meta: rgba(204, 251, 241, 0.92);
+  --bubble-other-bg: rgba(255, 255, 255, 0.75);
+  --bubble-other-txt: #091714;
+  --bubble-other-border: rgba(255, 255, 255, 0.60);
+  --bubble-other-meta: #506d67;
 }
 
 body {
@@ -90,8 +117,30 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
-  background-color: var(--bg-app);
+  background-color: #061614;
   color: var(--text-primary);
+}
+
+/* Ambient Background Layer with Subtle Readability Overlay */
+.chatpro-ambient-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: #061614;
+  background-image:
+    radial-gradient(ellipse 120% 100% at 50% 40%, rgba(255, 255, 255, 0.10) 0%, rgba(8, 26, 22, 0.20) 100%),
+    url('/chatpro_ambient_bg.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  will-change: transform;
+}
+
+@media (max-width: 640px) {
+  .chatpro-ambient-bg {
+    background-position: 50% 25%;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -113,10 +162,10 @@ button, input, textarea, select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(15, 118, 110, 0.18);
+  background: rgba(15, 118, 110, 0.20);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(15, 118, 110, 0.35);
+  background: rgba(15, 118, 110, 0.40);
 }

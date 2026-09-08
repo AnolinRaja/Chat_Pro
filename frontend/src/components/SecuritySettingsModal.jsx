@@ -145,10 +145,10 @@ function SecuritySettingsModal({ isOpen, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-4 backdrop-blur-md" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}>
-      <div className="relative flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-card backdrop-blur-xl shadow-glass overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="security-modal-title">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4 backdrop-blur-md" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}>
+      <div className="relative flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-3xl sm:rounded-3xl border border-white/60 bg-white/70 shadow-[0_24px_70px_-15px_rgba(0,30,25,0.35)] backdrop-blur-2xl overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="security-modal-title">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-line-subtle px-4 py-3.5 sm:px-6 sm:py-4 bg-surface-elevated/80 backdrop-blur-md">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/30 px-4 py-3.5 sm:px-6 sm:py-4 bg-white/30 backdrop-blur-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="grid h-8 w-8 sm:h-9 sm:w-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 sm:h-5 sm:w-5">
@@ -163,7 +163,7 @@ function SecuritySettingsModal({ isOpen, onClose }) {
           <button
             type="button"
             onClick={handleClose}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg p-1.5 text-txt-muted hover:bg-surface-hover hover:text-txt-primary transition-colors"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl p-1.5 text-txt-muted hover:bg-brand-soft hover:text-txt-primary transition-colors"
             aria-label="Close modal"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">

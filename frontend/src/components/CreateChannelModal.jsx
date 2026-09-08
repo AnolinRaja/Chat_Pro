@@ -69,19 +69,19 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-6 backdrop-blur-md transition-opacity"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6 backdrop-blur-md transition-opacity"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isSubmitting) onClose()
       }}
     >
       <div
-        className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-modal shadow-glass backdrop-blur-xl overflow-hidden"
+        className="flex max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl sm:rounded-3xl border border-white/60 bg-white/70 shadow-[0_24px_70px_-15px_rgba(0,30,25,0.35)] backdrop-blur-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-channel-title"
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line-glass p-4 sm:p-6">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/30 p-4 sm:p-6 bg-white/30 backdrop-blur-sm">
           <div className="min-w-0">
             <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-brand truncate">
               {organization?.organization_name || 'Organization'}
@@ -120,7 +120,7 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
                   onChange={(e) => setName(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
                   placeholder="e.g. general, announcements"
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border border-line-glass bg-glass-card pl-8 pr-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft disabled:bg-line-subtle"
+                  className="w-full rounded-xl border border-white/50 bg-white/50 pl-8 pr-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-line-subtle shadow-xs"
                 />
               </div>
               <p className="mt-1 text-xs text-txt-muted">
@@ -139,12 +139,12 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="What is this channel about?"
                 disabled={isSubmitting}
-                className="mt-1.5 w-full rounded-xl border border-line-glass bg-glass-card px-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand-soft disabled:bg-line-subtle resize-none"
+                className="mt-1.5 w-full rounded-xl border border-white/50 bg-white/50 px-4 py-2.5 text-base sm:text-sm text-txt-primary outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-line-subtle resize-none shadow-xs"
               />
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t border-line-glass p-4 sm:p-6 bg-glass-card shrink-0">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3 border-t border-white/30 p-4 sm:p-6 bg-white/30 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -156,7 +156,7 @@ function CreateChannelModal({ isOpen, organization, onClose, onSuccess }) {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex min-h-[44px] items-center justify-center rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover active:bg-brand-active disabled:opacity-50 shadow-xs"
+              className="flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-[#0f766e] to-[#0c635c] px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50 shadow-md shadow-brand/20"
             >
               {isSubmitting ? 'Creating...' : 'Create Channel'}
             </button>

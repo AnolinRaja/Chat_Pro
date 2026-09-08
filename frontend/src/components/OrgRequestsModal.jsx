@@ -78,20 +78,20 @@ function OrgRequestsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-6 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-6 backdrop-blur-md"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
       <div
-        className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-2xl sm:rounded-2xl border border-line-glass bg-glass-card backdrop-blur-xl shadow-glass overflow-hidden"
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-3xl sm:rounded-3xl border border-white/60 bg-white/70 shadow-[0_24px_70px_-15px_rgba(0,30,25,0.35)] backdrop-blur-2xl overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="org-requests-title"
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-line-subtle px-4 py-3.5 sm:px-6 sm:py-4 bg-surface-elevated/80 backdrop-blur-md">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/30 px-4 py-3.5 sm:px-6 sm:py-4 bg-white/30 backdrop-blur-sm">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -116,7 +116,7 @@ function OrgRequestsModal({
               disabled={isLoading}
               title="Refresh requests"
               aria-label="Refresh requests"
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-line-subtle bg-surface-elevated px-2.5 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-surface-hover disabled:opacity-50"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-lg border border-white/40 bg-white/45 px-2.5 py-1.5 text-xs font-medium text-txt-secondary transition hover:bg-white/75 disabled:opacity-50"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -140,7 +140,7 @@ function OrgRequestsModal({
               type="button"
               onClick={onClose}
               aria-label="Close organization requests dialog"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-txt-muted hover:bg-surface-hover hover:text-txt-primary transition-colors"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg text-txt-muted hover:bg-brand-soft hover:text-txt-primary transition-colors"
             >
               ✕
             </button>
@@ -255,14 +255,14 @@ function OrgRequestsModal({
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-between border-t border-line-subtle bg-surface-elevated/80 px-4 py-3 sm:px-6">
+        <div className="flex shrink-0 items-center justify-between border-t border-white/30 bg-white/30 px-4 py-3 sm:px-6">
           <span className="text-xs text-txt-muted">
             {requests.length} request{requests.length === 1 ? '' : 's'} total
           </span>
           <button
             type="button"
             onClick={onClose}
-            className="flex min-h-[38px] items-center justify-center rounded-lg px-4 py-1.5 text-xs font-semibold text-txt-muted hover:bg-surface-hover hover:text-txt-primary transition-colors"
+            className="flex min-h-[44px] items-center justify-center rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-txt-muted hover:bg-brand-soft hover:text-txt-primary transition-colors"
           >
             Close
           </button>

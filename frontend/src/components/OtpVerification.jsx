@@ -109,7 +109,7 @@ function OtpVerification({ email, onVerify, onResend, cooldownSeconds = DEFAULT_
                 onChange={(event) => updateDigit(index, event.target.value)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
                 autoComplete={index === 0 ? 'one-time-code' : 'off'}
-                className="h-11 sm:h-12 min-w-0 flex-1 max-w-12 rounded-lg border border-line-subtle bg-surface-elevated text-center text-base sm:text-lg font-bold font-mono text-txt-primary outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all"
+                className="h-11 sm:h-12 min-w-0 flex-1 max-w-12 rounded-xl border border-white/50 bg-white/50 backdrop-blur-md text-center text-base sm:text-lg font-bold font-mono text-txt-primary outline-none focus:bg-white/85 focus:border-brand focus:ring-2 focus:ring-brand/20 transition-all shadow-xs"
               />
             ))}
           </div>
@@ -117,7 +117,7 @@ function OtpVerification({ email, onVerify, onResend, cooldownSeconds = DEFAULT_
         <button
           disabled={isVerifying}
           type="submit"
-          className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-brand px-4 py-3 font-semibold text-brand-on hover:bg-brand-hover active:bg-brand-hover/90 disabled:cursor-not-allowed disabled:opacity-60 transition-colors shadow-xs"
+          className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gradient-to-r from-[#0f766e] to-[#0c635c] px-4 py-3 font-semibold text-white hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 transition-all shadow-md shadow-brand/20"
         >
           {isVerifying ? 'Verifying...' : 'Verify code'}
         </button>

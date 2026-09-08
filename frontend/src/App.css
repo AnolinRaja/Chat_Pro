@@ -9,14 +9,21 @@
   background-color: var(--bg-modal);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 .glass-composer {
   background-color: var(--bg-composer);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-composer);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-surface {
+  background-color: var(--surface);
+  border: 1px solid var(--glass-border);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
